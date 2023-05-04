@@ -3,7 +3,7 @@ hadoopFileSystemType: "hdfs"
 replicaCount: 1
 
 image:
-  repository: registry.mufankong.top/bigdata/hadoop-kyuubi
+  repository: registry.cn-hangzhou.aliyuncs.com/cum/hadoop-kyuubi
   pullPolicy: Always
   # Overrides the image tag whose default is the chart appVersion.
   tag: "1.6.1"

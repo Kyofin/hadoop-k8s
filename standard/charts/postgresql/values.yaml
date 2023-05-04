@@ -13,8 +13,8 @@ global:
 ## ref: https://hub.docker.com/r/bitnami/postgresql/tags/
 ##
 image:
-  registry: registry.mufankong.top
-  repository: bigdata/bitnami/postgresql
+  registry:
+  repository: bitnami/postgresql
   tag: 11.7.0-debian-10-r9
   ## Specify a imagePullPolicy
   ## Defaults to 'Always' if image tag is 'latest', else set to 'IfNotPresent'

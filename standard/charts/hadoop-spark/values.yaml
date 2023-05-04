@@ -1,4 +1,4 @@
-image: registry.mufankong.top/bigdata/hadoop-spark:3.2.1
+image: registry.cn-hangzhou.aliyuncs.com/cum/hadoop-spark:3.2.1
 
 ## hadoop的Filesystem类型：支持minio/juicefs/hdfs
 hadoopFileSystemType: juicefs

@@ -184,7 +184,7 @@ hdfs-krb5-k8s:
 ## ------------------------------------------------------------------------------
 global:
   image:
-    repository: registry.mufankong.top/bigdata/hadoop-hdfs
+    repository: registry.cn-hangzhou.aliyuncs.com/cum/hadoop-hdfs
     tag: 2.10.2
   # enable root as proxy user
   enableProxyUserRoot: false

@@ -1,4 +1,4 @@
-image: registry.mufankong.top/bigdata/hadoop-flink:1.12.7
+image: registry.cn-hangzhou.aliyuncs.com/cum/hadoop-flink:1.12.7
 
 ## hadoop的Filesystem类型：支持minio/juicefs/hdfs
 hadoopFileSystemType: juicefs

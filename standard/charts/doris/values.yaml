@@ -1,6 +1,6 @@
 
 fe:
-  image: registry.mufankong.top/bigdata/doris-fe:1.1.0
+  image: registry.cn-hangzhou.aliyuncs.com/cum/doris-fe:1.1.0
   nodeSelector: { }
   http_port: 8030
   rpc_port: 9020
@@ -11,7 +11,7 @@ fe:
 
 
 be:
-  image: registry.mufankong.top/bigdata/doris-be:1.1.0
+  image: registry.cn-hangzhou.aliyuncs.com/cum/doris-be:1.1.0
   replicas: 3
   nodeSelector: { }
   be_port : 9060

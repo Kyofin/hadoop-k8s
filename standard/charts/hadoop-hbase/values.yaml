@@ -1,6 +1,6 @@
 
 image:
-  repository: registry.mufankong.top/bigdata/hadoop-hbase
+  repository: registry.cn-hangzhou.aliyuncs.com/cum/hadoop-hbase
   tag: 1.3.6
   pullPolicy: IfNotPresent
 

@@ -1,4 +1,4 @@
-image: registry.mufankong.top/bigdata/hadoop-hive:2.3.9
+image: registry.cn-hangzhou.aliyuncs.com/cum/hadoop-hive:2.3.9
 
 ## hadoop的Filesystem类型：支持minio/juicefs/hdfs
 hadoopFileSystemType: juicefs
