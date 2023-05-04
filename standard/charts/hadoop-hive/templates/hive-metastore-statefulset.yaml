@@ -1,0 +1,116 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{.Release.Name}}-hive-metastore
+  labels:
+    app: hive-metastore
+spec:
+  serviceName: {{.Release.Name}}-hive-metastore-headless
+  replicas: {{.Values.metastore.replicas}}
+  selector:
+    matchLabels:
+      app: hive-metastore
+  template:
+    metadata:
+      labels:
+        app: hive-metastore
+    spec:
+      nodeSelector:
+      {{ toYaml .Values.metastore.nodeSelector | indent 8 }}
+      containers:
+        {{ if .Values.metrics.jmx.enable}}
+        - name: jmx-exporter
+          env:
+            - name: SERVICE_PORT
+              value: "8007"
+          image: {{.Values.metrics.jmx.image}}
+          imagePullPolicy: Always
+          ports:
+            - name: metrics
+              containerPort: 8007
+          volumeMounts:
+            - name: jmx-config
+              mountPath: /opt/jmx_exporter/config.yml
+              subPath: hive-metastore-config.yml
+          livenessProbe:
+            failureThreshold: 8
+            httpGet:
+              path: /metrics
+              port: 8007
+            initialDelaySeconds: 30
+            periodSeconds: 15
+            successThreshold: 1
+            timeoutSeconds: 60
+          readinessProbe:
+            failureThreshold: 8
+            httpGet:
+              path: /metrics
+              port: 8007
+            initialDelaySeconds: 30
+            periodSeconds: 15
+            successThreshold: 1
+            timeoutSeconds: 60
+        {{end}}
+        - name: hive-metastore
+          command:
+            [ "/bin/bash", "-ce", "/opt/start-metastore.sh" ]
+
+          livenessProbe:
+            tcpSocket:
+              port: 9083
+            initialDelaySeconds: 10
+            timeoutSeconds: 2
+          env:
+            - name: TZ
+              value: "Asia/Shanghai"
+            - name: HADOOP_HOME
+              value: "/usr/local/hadoop"
+          image: {{.Values.image}}
+          imagePullPolicy: Always
+          ports:
+            - name: metastore-port
+              containerPort: 9083
+              protocol: TCP
+          volumeMounts:
+            - name: hiveconf
+              mountPath: /opt/hive/conf/hive-site.xml
+              subPath: hive-site.xml
+            - name: hadoop-fs-conf
+              mountPath: /usr/local/hadoop/etc/hadoop/core-site.xml
+              subPath: core-site.xml
+            - name: hiveconf
+              mountPath: /opt/hive/conf/hive-env.sh
+              subPath: hive-env.sh
+            - name: hadoop-fs-conf
+              mountPath: /usr/local/hadoop/etc/hadoop/hdfs-site.xml
+              subPath: hdfs-site.xml
+            - name: hadoop-yarn-conf
+              mountPath: /usr/local/hadoop/etc/hadoop/yarn-site.xml
+              subPath: yarn-site.xml
+            - name: hadoop-yarn-conf
+              mountPath: /usr/local/hadoop/etc/hadoop/mapred-site.xml
+              subPath: mapred-site.xml
+            - name: hive-script
+              mountPath: /opt/start-metastore.sh
+              subPath: start-metastore.sh
+          resources:
+            requests:
+              memory: "2G"
+              cpu: "2"
+      volumes:
+        - name: jmx-config
+          configMap:
+            name: {{.Release.Name}}-hive-jmx-configmap
+        - name: hive-script
+          configMap:
+              name: {{.Release.Name}}-hive-script
+              defaultMode: 0744
+        - name: hiveconf
+          configMap:
+            name: {{.Release.Name}}-hive-cfg
+        - name: hadoop-fs-conf
+          configMap:
+            name: {{template "hadoop-fs-conf" .}}
+        - name: hadoop-yarn-conf
+          configMap:
+            name: {{template "hadoop-yarn-conf" .}}

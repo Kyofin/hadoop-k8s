@@ -1,0 +1,122 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{.Release.Name}}-flink-history
+  labels:
+    app:  {{.Release.Name}}-flink-history
+spec:
+  replicas: 1
+  serviceName: {{.Release.Name}}-flink-history-headless
+  selector:
+    matchLabels:
+      app:  {{.Release.Name}}-flink-history
+  template:
+    metadata:
+      labels:
+        app:  {{.Release.Name}}-flink-history
+    spec:
+      nodeSelector:
+      {{ toYaml .Values.history.nodeSelector | indent 8 }}
+      containers:
+        - name: flink-history
+          image: {{.Values.image}}
+          imagePullPolicy: Always
+          command: [ "/opt/script/bootstrap.sh" ]
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 8082
+            initialDelaySeconds: 10
+            timeoutSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 8082
+            initialDelaySeconds: 30
+            timeoutSeconds: 5
+          env:
+            - name: TZ
+              value: "Asia/Shanghai"
+            - name: HADOOP_CLASSPATH
+              value: "/opt/hadoop_conf:/usr/local/hadoop/share/hadoop/common/lib/*:/usr/local/hadoop/share/hadoop/common/*:/usr/local/hadoop/share/hadoop/hdfs:/usr/local/hadoop/share/hadoop/hdfs/lib/*:/usr/local/hadoop/share/hadoop/hdfs/*:/usr/local/hadoop/share/hadoop/yarn/lib/*:/usr/local/hadoop/share/hadoop/yarn/*:/usr/local/hadoop/share/hadoop/mapreduce/lib/*:/usr/local/hadoop/share/hadoop/mapreduce/*"
+            - name: MY_POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: MY_POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: MY_POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+            - name: HADOOP_CONF_DIR
+              value: /opt/hadoop_conf
+          volumeMounts:
+            - name: flink-conf
+              mountPath: /opt/flink/conf/flink-conf.yaml
+              subPath: flink-conf.yaml
+            - name: flink-script
+              mountPath: /opt/script
+            - name: hadoop-fs-conf
+              mountPath: /opt/hadoop_conf/core-site.xml
+              subPath: core-site.xml
+            - name: hadoop-fs-conf
+              mountPath: /opt/hadoop_conf/hdfs-site.xml
+              subPath: hdfs-site.xml
+            - name: hadoop-yarn-conf
+              mountPath: /opt/hadoop_conf/yarn-site.xml
+              subPath: yarn-site.xml
+            - name: hadoop-hive-conf
+              mountPath: /opt/hadoop_conf/hive-site.xml
+              subPath: hive-site.xml
+            - name: hadoop-yarn-conf
+              mountPath: /opt/hadoop_conf/mapred-site.xml
+              subPath: mapred-site.xml
+
+      volumes:
+        - name: flink-conf
+          configMap:
+            name: {{.Release.Name}}-flink-conf-map
+        - name: flink-script
+          configMap:
+            name: {{ .Release.Name}}-flink-script
+            defaultMode: 0744
+        - name: hadoop-fs-conf
+          configMap:
+            name: {{template "flink.hadoop-fs-conf" .}}
+        - name: hadoop-yarn-conf
+          configMap:
+            name: {{template "flink.hadoop-yarn-conf" .}}
+        - name: hadoop-hive-conf
+          configMap:
+            name: {{template "flink.hadoop-hive-conf" .}}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{.Release.Name}}-flink-history-svc
+spec:
+  ports:
+    - port: 8082
+      protocol: TCP
+      name: flink-history-web
+  selector:
+    # same of pod label
+    app: {{.Release.Name}}-flink-history
+---
+kind: Service
+apiVersion: v1
+
+metadata:
+  name: {{.Release.Name}}-flink-history-headless
+  labels:
+    app: {{.Release.Name}}-flink-history
+spec:
+  selector:
+    app: {{.Release.Name}}-flink-history
+  clusterIP: None
+  type: ClusterIP
+

@@ -1,0 +1,14 @@
+image: registry.mufankong.top/bigdata/hadoop-spark:3.2.1
+
+## hadoop的Filesystem类型：支持minio/juicefs/hdfs
+hadoopFileSystemType: juicefs
+
+history:
+  enable: true
+  nodeSelector: {}
+
+thriftserver:
+  enable: true
+  replicas: 1
+  nodeSelector: {}
+

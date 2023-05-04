@@ -1,0 +1,45 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: {{ .Release.Name}}-juicefs-gatway
+  labels:
+    app: {{ .Release.Name}}-juicefs-gatway
+spec:
+  volumes:
+    - name: juicefs-script
+      configMap:
+        name: {{ .Release.Name}}-juicefs-script
+        defaultMode: 0744
+
+  containers:
+    - name: juicefs-gatway
+      livenessProbe:
+        tcpSocket:
+          port: 9100
+        initialDelaySeconds: 30
+        timeoutSeconds: 5
+      securityContext:
+        privileged: true
+      image: {{.Values.image}}
+      imagePullPolicy: Always
+      volumeMounts:
+        - mountPath: /opt/bootstrap.sh
+          name: juicefs-script
+          subPath: bootstrap.sh
+      env:
+        - name: TZ
+          value: "Asia/Shanghai"
+        - name: MINIO_ROOT_USER
+          value: {{.Values.gataway_user}}
+        - name: MINIO_ROOT_PASSWORD
+          value:  {{.Values.gataway_password}}
+        - name: META_URL
+          value: {{template "juicef.meta_url" .}}
+        - name: STORAGE
+          value: {{template "juicef.stroage" .}}
+        - name: BUCKET
+          value: {{template "juicef.bucket" .}}
+        - name: ACCESS_KEY
+          value: {{template "juicef.access_key" .}}
+        - name: SECRET_KEY
+          value:  {{template "juicef.secret_key" .}}

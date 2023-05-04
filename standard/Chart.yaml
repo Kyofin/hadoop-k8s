@@ -1,0 +1,78 @@
+apiVersion: v2
+name: bigdata-stack
+description: bigdata-stack
+
+# A chart can be either an 'application' or a 'library' chart.
+#
+# Application charts are a collection of templates that can be packaged into versioned archives
+# to be deployed.
+#
+# Library charts provide useful utilities or functions for the chart developer. They're included as
+# a dependency of application charts to inject those utilities and functions into the rendering
+# pipeline. Library charts do not define any templates and therefore cannot be deployed.
+type: application
+
+# This is the chart version. This version number should be incremented each time you make changes
+# to the chart and its templates, including the app version.
+# Versions are expected to follow Semantic Versioning (https://semver.org/)
+version: 0.1.0
+
+# This is the version number of the application being deployed. This version number should be
+# incremented each time you make changes to the application. Versions are not expected to
+# follow Semantic Versioning. They should reflect the version the application is using.
+# It is recommended to use it with quotes.
+appVersion: "1.16.0"
+
+dependencies:
+  - name: hadoop-yarn
+    version: 0.1.0
+    condition: hadoop-yarn.enable
+    repository: file://charts/hadoop-yarn
+  - name: zookeeper
+    version: 2.1.55
+    condition: zookeeper.enable
+    repository: file://charts/zookeeper
+  - name: juicefs
+    version: 0.1.0
+    condition: juicefs.enable
+    repository: file://charts/juicefs
+  - name: minio
+    version: 4.0.9
+    condition: minio.enable
+    repository: file://charts/minio
+  - name: hadoop-hive
+    version: 0.1.0
+    condition: hadoop-hive.enable
+    repository: file://charts/hadoop-hive
+  - name: hadoop-spark
+    version: 0.1.0
+    condition: hadoop-spark.enable
+    repository: file://charts/hadoop-spark
+  - name: hadoop-kyuubi
+    version: 0.1.0
+    condition: hadoop-kyuubi.enable
+    repository: file://charts/hadoop-kyuubi
+  - name: hadoop-flink
+    version: 0.1.0
+    condition: hadoop-flink.enable
+    repository: file://charts/hadoop-flink
+  - name: hadoop-hdfs
+    version: 0.1.0
+    condition: hadoop-hdfs.enable
+    repository: file://charts/hadoop-hdfs
+  - name: hadoop-hbase
+    version: 0.1.0
+    condition: hadoop-hbase.enable
+    repository: file://charts/hadoop-hbase
+  - name: postgresql
+    version: 0.1.0
+    condition: postgresql.enable
+    repository: file://charts/postgresql
+  - name: doris
+    version: 0.1.0
+    condition: doris.enable
+    repository: file://charts/doris
+  - name: grafana
+    version: 6.32.13
+    condition: grafana.enable
+    repository: file://charts/grafana

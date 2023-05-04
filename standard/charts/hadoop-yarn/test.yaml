@@ -1,0 +1,14 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: test-network
+spec:
+  template:
+    spec:
+      containers:
+        - name: test-busybox
+          image: registry.mufankong.top/library/busybox:1.32
+          imagePullPolicy: Always
+          command: ['sh', '-xc', 'for i in $(seq 1 180); do  sleep 5; done; ']
+      restartPolicy: Never
+  backoffLimit: 1

@@ -1,0 +1,30 @@
+kind: Service
+apiVersion: v1
+metadata:
+  name: {{ .Release.Name}}-hadoop-yarn-nodemanager
+  labels:
+    app: hadoop
+    component: yarn-nm
+    release: {{ .Release.Name}}
+spec:
+  ports:
+    - name: web
+      protocol: TCP
+      port: 8088
+    - name: web2
+      protocol: TCP
+      port: 8082
+    - name: api
+      protocol: TCP
+      port: 8042
+    - name: metrics
+      protocol: TCP
+      port: 28007
+  selector:
+    app: hadoop
+    component: yarn-nm
+    release: {{ .Release.Name}}
+  clusterIP: None
+  publishNotReadyAddresses: true
+  type: ClusterIP
+

@@ -1,0 +1,129 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ template "hbase.fullname" . }}-master
+  annotations:
+    checksum/config: {{ include (print $.Template.BasePath "/hbase-configmap.yaml") . | sha256sum }}
+  labels:
+    app: {{ template "hbase.name" . }}
+    chart: {{ include "hbase.chart" . }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+    component: hbase-master
+spec:
+  serviceName: {{ template "hbase.fullname" . }}-master
+  selector:
+    matchLabels:
+      app: {{ template "hbase.name" . }}
+      release: {{ .Release.Name }}
+      component: hbase-master
+  replicas: {{if .Values.master.haMode }} 2 {{else}} 1 {{end}}
+  template:
+    metadata:
+      labels:
+        app: {{ template "hbase.name" . }}
+        release: {{ .Release.Name }}
+        component: hbase-master
+    spec:
+      {{- if .Values.master.affinity }}
+      affinity:
+{{ toYaml .Values.master.affinity | indent 8 }}
+      {{- else }}
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchExpressions:
+                  - key: "component"
+                    operator: In
+                    values:
+                      - hbase-master
+                  - key: "app"
+                    operator: In
+                    values:
+                      - {{ template "hbase.name" . }}
+              topologyKey: "kubernetes.io/hostname"
+      {{- end }}
+      terminationGracePeriodSeconds: 30
+      containers:
+      {{ if .Values.metrics.jmx.enable}}
+      - name: jmx-exporter
+        env:
+          - name: SERVICE_PORT
+            value: "8007"
+        image: {{.Values.metrics.jmx.image}}
+        imagePullPolicy: Always
+        ports:
+          - name: metrics
+            containerPort: 8007
+        volumeMounts:
+          - name: jmx-config
+            mountPath: /opt/jmx_exporter/config.yml
+            subPath: hbase-master.yml
+        livenessProbe:
+          failureThreshold: 8
+          httpGet:
+            path: /metrics
+            port: 8007
+          initialDelaySeconds: 30
+          periodSeconds: 15
+          successThreshold: 1
+          timeoutSeconds: 60
+        readinessProbe:
+          failureThreshold: 8
+          httpGet:
+            path: /metrics
+            port: 8007
+          initialDelaySeconds: 30
+          periodSeconds: 15
+          successThreshold: 1
+          timeoutSeconds: 60
+      {{end}}
+      - name: hbase-master
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+        imagePullPolicy: {{ .Values.imagePullPolicy }}
+        env:
+          - name: HADOOP_CUSTOM_CONF_DIR
+            value: /etc/hadoop-custom-conf
+          - name: HADOOP_CONF_DIR
+            value: /etc/hadoop-custom-conf
+        command:
+        - "/bin/bash"
+        - "/etc/hbase-custom-conf/bootstrap.sh"
+        resources:
+{{ toYaml .Values.master.resources | indent 10 }}
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 16010
+          initialDelaySeconds: 10
+          timeoutSeconds: 5
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 16010
+          initialDelaySeconds: 20
+          timeoutSeconds: 5
+        lifecycle:
+          preStop:
+            exec:
+              command:
+              - "/bin/bash"
+              - "/etc/hbase-custom-conf/stop.sh"
+        volumeMounts:
+        - name: hbase-config
+          mountPath: /etc/hbase-custom-conf
+        - name: hadoop-config
+          mountPath: /etc/hadoop-custom-conf
+      volumes:
+        - name: jmx-config
+          configMap:
+              name: {{.Release.Name}}-hbase-jmx-configmap
+        - name: hbase-config
+          configMap:
+            name: {{ include "hbase.fullname" . }}
+        - name: hadoop-config
+          configMap:
+            name: {{ include "hbase.hadoop-config.fullname" . }}
+      nodeSelector:
+{{ toYaml .Values.master.nodeSelector | indent 8 }}

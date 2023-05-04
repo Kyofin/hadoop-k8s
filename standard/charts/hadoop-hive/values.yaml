@@ -1,0 +1,24 @@
+image: registry.mufankong.top/bigdata/hadoop-hive:2.3.9
+
+## hadoop的Filesystem类型：支持minio/juicefs/hdfs
+hadoopFileSystemType: juicefs
+
+metastore:
+  replicas: 2
+  # 默认使用内置的pg，不需要填写下面信息，如果需要将hive元数据存储到外部的数据库中，才需要填
+#  jdbc_url: "jdbc:mysql://10.81.17.8:33066/hive2_3_9_k8s?createDatabaseIfNotExist=true&amp;useUnicode=true&amp;characterEncoding=utf8&amp;useSSL=false&amp;rewriteBatchedStatements=true&amp;serverTimezone=Asia/Shanghai"
+#  jdbc_user: "root"
+#  jdbc_password: "bigdata"
+
+  nodeSelector: { }
+
+
+server2:
+  replicas: 1
+  nodeSelector: { }
+
+
+metrics:
+  jmx:
+    enable: true
+    image: registry.mufankong.top/bigdata/jmx-prometheus-exporter:0.12.0-openjdk

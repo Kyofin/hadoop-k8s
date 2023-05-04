@@ -1,0 +1,18 @@
+kind: Service
+apiVersion: v1
+
+metadata:
+  name: {{ .Release.Name }}-kyuubi-headless
+  labels:
+    app: {{ template "kyuubi.name" . }}
+   {{- with .Values.service.annotations }}
+    annotations:
+     {{- toYaml . | nindent 4 }}
+   {{- end }}
+spec:
+  selector:
+    app: {{ template "kyuubi.name" . }}
+    release: {{ .Release.Name }}
+  clusterIP: None
+  type: ClusterIP
+

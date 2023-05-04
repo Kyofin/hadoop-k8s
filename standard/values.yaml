@@ -1,0 +1,178 @@
+## ------------------------------------------------------------------------------
+## zookeeper：分布式协调，DS、Hbase和开启高可用的HDFS、YARN都会依赖
+## ------------------------------------------------------------------------------
+zookeeper:
+  enable: true
+  replicaCount: 3
+  nodeSelector: {}
+  exporters:
+    jmx:
+      enabled: false
+    zookeeper:
+      enabled: true
+  prometheus:
+    serviceMonitor:
+      ## If true a ServiceMonitor for each enabled exporter will be installed
+      enabled: true
+
+## ------------------------------------------------------------------------------
+## HDFS：分布式文件系统
+## ------------------------------------------------------------------------------
+hadoop-hdfs:
+  enable: true
+  global:
+    namenodeHAEnabled: true
+    # 数量要对齐内置zk的数量
+    zookeeperQuorumSize: 3
+    # 如果需要用外部zk才填
+#    zookeeperQuorumOverride: zk-0.zk-svc.default.svc.cluster.local:2181,zk-1.zk-svc.default.svc.cluster.local:2181,zk-2.zk-svc.default.svc.cluster.local:2181
+  hdfs-namenode-k8s:
+    hostNetworkEnabled: true
+    nodeSelector: {}
+
+  hdfs-journalnode-k8s:
+    nodeSelector: {}
+
+  hdfs-datanode-k8s:
+    nodeSelector: {}
+
+
+## ------------------------------------------------------------------------------
+## Hbase：分布式数据库
+## ------------------------------------------------------------------------------
+hadoop-hbase:
+  enable: true
+  global:
+    # 数量要对齐内置zk的数量
+    zookeeperQuorumSize: 3
+    # 如果需要用外部zk才填
+    # zookeeperQuorumOverride: zk-0.zk-svc.default.svc.cluster.local:2181,zk-1.zk-svc.default.svc.cluster.local:2181,zk-2.zk-svc.default.svc.cluster.local:2181
+  master:
+    haMode: true
+  region:
+    replicas: 2
+
+## ------------------------------------------------------------------------------
+## YARN：分布式计算资源调度，MR和Hive、Spark、Flink都会依赖该服务
+## ------------------------------------------------------------------------------
+hadoop-yarn:
+  enable: true
+  hadoopFileSystemType: hdfs
+  haMode: true
+  # 数量要对齐内置zk的数量
+  zookeeperQuorumSize: 3
+  # 如果需要用外部zk才填
+  # zookeeperQuorumOverride: zk-0.zk-svc.default.svc.cluster.local:2181,zk-1.zk-svc.default.svc.cluster.local:2181,zk-2.zk-svc.default.svc.cluster.local:2181
+  hostNetwork: false
+  nodeManager:
+    replicas: 3
+    # 控制NM容器的核数和内存大小
+    cpu: "4"
+    memory: "8Gi"
+    nodeSelector: {}
+
+
+  resourceManager:
+    nodeSelector: {}
+
+  mrHistory:
+    nodeSelector: {}
+
+
+
+## ------------------------------------------------------------------------------
+## Hive：数据仓库，依赖PG或MYSQL作为元数据库，也依赖YARN做SQL计算
+## ------------------------------------------------------------------------------
+hadoop-hive:
+  enable: true
+  hadoopFileSystemType: hdfs
+  server2:
+    replicas: 1
+    nodeSelector: {}
+
+  metastore:
+    replicas: 1
+    # 默认使用内置的pg，不需要填写下面信息，如果需要将hive元数据存储到外部的数据库中，才需要填
+#    jdbc_url: "jdbc:mysql://10.81.17.8:33066/hive2_3_9_k8s?createDatabaseIfNotExist=true&amp;useUnicode=true&amp;characterEncoding=utf8&amp;useSSL=false&amp;rewriteBatchedStatements=true&amp;serverTimezone=Asia/Shanghai"
+#    jdbc_user: "root"
+#    jdbc_password: "bigdata"
+    nodeSelector: {}
+
+
+## ------------------------------------------------------------------------------
+## Spark：分布式内存计算。依赖YARN、HDFS、HIVE
+## ------------------------------------------------------------------------------
+hadoop-spark:
+  enable: true
+  hadoopFileSystemType: hdfs
+  history:
+    nodeSelector: {}
+
+  thriftserver:
+    replicas: 1
+    nodeSelector: {}
+
+## ------------------------------------------------------------------------------
+## kyuubi：SQL Gateway。比SparkThrift更好用
+## ------------------------------------------------------------------------------
+hadoop-kyuubi:
+  enable: true
+  hadoopFileSystemType: hdfs
+  # spark engine启动时的计算资源，可以指定yarn还是kubernetes
+  sparkMasterType: "yarn"
+
+
+## ------------------------------------------------------------------------------
+## Flink：流计算
+## ------------------------------------------------------------------------------
+hadoop-flink:
+  enable: true
+  hadoopFileSystemType: hdfs
+  history:
+    nodeSelector: {}
+
+
+## ------------------------------------------------------------------------------
+## Minio：对象存储
+## ------------------------------------------------------------------------------
+minio:
+  enable: false
+  # Number of drives attached to a node
+
+  drivesPerNode: 1
+  # Number of MinIO containers running
+  replicas: 2
+  # Number of expanded MinIO clusters
+  pools: 1
+
+## ------------------------------------------------------------------------------
+## Juicefs：基于对象存储的分布式文件系统
+## ------------------------------------------------------------------------------
+juicefs:
+  enable: false
+
+## ------------------------------------------------------------------------------
+## postgresql：数据库
+## ------------------------------------------------------------------------------
+postgresql:
+  enable: true
+
+## ------------------------------------------------------------------------------
+## Doris：分布式OLAP数据库
+## ------------------------------------------------------------------------------
+doris:
+  enable: true
+  fe:
+    nodeSelector: {}
+
+  be:
+    replicas: 3
+    nodeSelector: {}
+
+
+
+## ------------------------------------------------------------------------------
+## grafana：监控看板
+## ------------------------------------------------------------------------------
+grafana:
+  enable: true

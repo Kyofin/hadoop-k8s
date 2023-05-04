@@ -1,0 +1,15 @@
+kind: Service
+apiVersion: v1
+metadata:
+  name: {{.Release.Name}}-doris-fe-headless
+  labels:
+    app: {{.Release.Name}}-doris-fe
+spec:
+  selector:
+    app: {{.Release.Name}}-doris-fe
+  clusterIP: None
+  publishNotReadyAddresses: true
+  type: ClusterIP
+  ports:
+    - port: {{.Values.fe.http_port}}
+      name: web

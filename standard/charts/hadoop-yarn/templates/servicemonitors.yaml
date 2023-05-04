@@ -1,0 +1,45 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ .Release.Name}}-hadoop-yarn-nodemanager
+  labels:
+      app: hadoop
+      component: yarn-nm
+      release: {{ .Release.Name}}
+spec:
+  endpoints:
+    - port: metrics
+      path: "/metrics"
+
+  selector:
+    matchLabels:
+      app: hadoop
+      component: yarn-nm
+      release: {{ .Release.Name}}
+  namespaceSelector:
+    matchNames:
+      - {{ .Release.Namespace }}
+
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ .Release.Name}}-hadoop-yarn-resourcemanager
+  labels:
+      app: hadoop
+      component: yarn-rm
+      release: {{ .Release.Name}}
+spec:
+  endpoints:
+    - port: metrics
+      path: "/metrics"
+
+
+  selector:
+    matchLabels:
+        app: hadoop
+        release: {{ .Release.Name}}
+        component: yarn-rm
+  namespaceSelector:
+    matchNames:
+      - {{ .Release.Namespace }}

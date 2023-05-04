@@ -1,0 +1,36 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{.Release.Name}}-hbase-master
+  labels:
+    app: hbase-master
+spec:
+  endpoints:
+    - port: metrics
+  selector:
+      matchLabels:
+          app: {{ template "hbase.name" . }}
+          release: {{ .Release.Name }}
+          component: hbase-master
+  namespaceSelector:
+    matchNames:
+      - {{ .Release.Namespace }}
+
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{.Release.Name}}-hbase-region
+  labels:
+    app: hbase-region
+spec:
+  endpoints:
+    - port: metrics
+  selector:
+    matchLabels:
+        app: {{ template "hbase.name" . }}
+        release: {{ .Release.Name }}
+        component: hbase-rs
+  namespaceSelector:
+    matchNames:
+      - {{ .Release.Namespace }}

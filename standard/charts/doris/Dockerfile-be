@@ -1,0 +1,28 @@
+FROM ubuntu:trusty AS build
+
+ENV DORIS_URL="https://uni-1253355096.cos.ap-guangzhou.myqcloud.com/apache-doris-1.1.0-bin-x86-jdk8.tar.gz"
+
+RUN apt install -y wget
+
+RUN  wget -O /opt/apache-doris-1.1.0-bin-x86-jdk8.tar.gz  --no-check-certificate "$DORIS_URL" \
+     && tar zxvf /opt/apache-doris-1.1.0-bin-x86-jdk8.tar.gz -C /opt/  \
+&& rm -rf  /opt/doris/apache-doris-1.1.0-bin-x86-jdk8.tar.gz   \
+&& mkdir -p /opt/doris \
+&&  mv /opt/apache-doris-1.1.0-bin-x86-jdk8/be     /opt/doris/be  \
+&& rm -rf  /opt/apache-doris-1.1.0-bin-x86-jdk8
+
+FROM ubuntu:trusty
+
+COPY --from=build /opt/doris /opt/doris
+
+
+RUN apt-get install mysql-client   -y
+
+EXPOSE 9060
+EXPOSE 8040
+EXPOSE 9050
+EXPOSE 8060
+
+
+
+CMD /opt/doris/be/bin/start_be.sh

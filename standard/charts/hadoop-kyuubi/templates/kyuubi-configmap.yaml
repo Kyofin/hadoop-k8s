@@ -1,0 +1,94 @@
+#
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.
+# The ASF licenses this file to You under the Apache License, Version 2.0
+# (the "License"); you may not use this file except in compliance with
+# the License.  You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-kyuubi-defaults
+  labels:
+    app: {{ template "kyuubi.name" . }}
+data:
+  log4j2.xml: |
+    <?xml version="1.0" encoding="UTF-8"?>
+
+    <!-- Provide log4j2.xml.template to fix `ERROR Filters contains invalid attributes "onMatch", "onMismatch"`, see KYUUBI-2247 -->
+    <!-- Extra logging related to initialization of Log4j.
+    Set to debug or trace if log4j initialization is failing. -->
+    <Configuration status="INFO">
+    <Appenders>
+      <Console name="stdout" target="SYSTEM_OUT">
+        <PatternLayout pattern="%d{yyyy-MM-dd HH:mm:ss.SSS} %p %c: %m%n"/>
+        <Filters>
+            <RegexFilter regex=".*Thrift error occurred during processing of message.*" onMatch="DENY" onMismatch="NEUTRAL"/>
+            <RegexFilter regex=".*Error occurred during processing of message.*" onMatch="DENY" onMismatch="NEUTRAL"/>
+        </Filters>
+      </Console>
+
+    </Appenders>
+    <Loggers>
+    <Root level="INFO">
+        <AppenderRef ref="stdout"/>
+    </Root>
+    <Logger name="org.apache.kyuubi.ctl.ServiceControlCli" level="error" additivity="false">
+        <AppenderRef ref="stdout"/>
+    </Logger>
+    <!--
+    <Logger name="org.apache.kyuubi.server.mysql.codec" level="trace" additivity="false">
+    <AppenderRef ref="stdout"/>
+    </Logger>
+    -->
+    <Logger name="org.apache.hive.beeline.KyuubiBeeLine" level="error" additivity="false">
+        <AppenderRef ref="stdout"/>
+    </Logger>
+    </Loggers>
+    </Configuration>
+  kyuubi-defaults.conf: |
+
+    ## Kyuubi Configurations
+
+    #
+    # kyuubi.authentication           NONE
+    #
+    kyuubi.frontend.bind.host={{ .Values.server.bind.host }}
+    kyuubi.frontend.bind.port={{ .Values.server.bind.port }}
+
+    # Details in https://kyuubi.apache.org/docs/latest/deployment/settings.html
+
+    ## Spark Configurations
+    # 这里可以输入spark原生的配置，优先级会比spark-default.conf高
+    {{if eq .Values.sparkMasterType "yarn"}}
+    spark.master=yarn
+    # 开启ESS功能
+    spark.shuffle.service.enabled true
+    spark.shuffle.service.port 7337
+    {{else if eq  .Values.sparkMasterType "kubernetes"}}
+    spark.master=k8s://https://kubernetes.default.svc
+    spark.kubernetes.container.image={{.Values.sparkOnK8sImage}}
+    spark.kubernetes.namespace={{.Release.Namespace}}
+    spark.kubernetes.authenticate.driver.serviceAccountName={{.Release.Name}}-kyuubi
+    {{else}}
+    spark.master=local[*]
+    {{end}}
+    # spark history
+    spark.history.fs.logDirectory    {{template "kyuubi.history.fs.logDirectory" .}}
+    spark.eventLog.compress: false
+    spark.eventLog.enabled           true
+    spark.eventLog.dir               {{template "kyuubi.history.fs.logDirectory" .}}
+    spark.yarn.historyServer.address   {{.Release.Name}}-spark-history-ui:18080
+
+
+

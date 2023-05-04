@@ -1,0 +1,45 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{.Release.Name}}-doris-fe
+  labels:
+    app: {{.Release.Name}}-doris-fe
+spec:
+  endpoints:
+    - port: web
+      path: "/metrics"
+      relabelings:
+        - replacement: fe
+          targetLabel: group
+        - replacement: {{.Release.Name}}-doris-cluster
+          targetLabel: job
+  selector:
+    matchLabels:
+      app:  {{.Release.Name}}-doris-fe
+  namespaceSelector:
+    matchNames:
+      - {{ .Release.Namespace }}
+
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{.Release.Name}}-doris-be
+  labels:
+    app: {{.Release.Name}}-doris-be
+spec:
+  endpoints:
+    - port: web
+      path: "/metrics"
+      relabelings:
+        - replacement: be
+          targetLabel: group
+        - replacement: {{.Release.Name}}-doris-cluster
+          targetLabel: job
+
+  selector:
+    matchLabels:
+      app:  {{.Release.Name}}-doris-be
+  namespaceSelector:
+    matchNames:
+      - {{ .Release.Namespace }}

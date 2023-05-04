@@ -1,0 +1,207 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{.Release.Name}}-hive-cfg
+  labels:
+    app: hive
+data:
+  hive-site.xml: |
+    <?xml version="1.0"?>
+    <?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
+    <configuration>
+        
+        <property>
+            <name>hive.metastore.uris</name>
+            <value>{{template "hive-metastore-headless-uri" .}}</value>
+        </property>
+
+        <property>
+            <name>javax.jdo.option.ConnectionURL</name>
+            <value>{{template "hive.jdbcUrl" .}}</value>
+        </property>
+
+        <property>
+            <name>javax.jdo.option.ConnectionPassword</name>
+            <value>{{template "hive.password" .}}</value>
+        </property>
+        <property>
+            <name>javax.jdo.option.ConnectionUserName</name>
+            <value>{{template "hive.user" .}}</value>
+        </property>
+        <property>
+        <name>datanucleus.schema.autoCreateTables</name>
+        <value>true</value>
+        </property>
+        <property>
+        <name>datanucleus.schema.autoCreateSchema</name>
+        <value>true</value>
+        </property>
+        <property>
+        <name>datanucleus.autoCreateSchema</name>
+        <value>true</value>
+        </property>
+
+        <property>
+            <name>hive.metastore.warehouse.dir</name>
+            <value>{{template "hive.warehouse.dir" .}}</value>
+        </property>
+        <property>
+        <name>hive.metastore.schema.verification</name>
+        <value>false</value>
+        </property>
+
+        <property>
+        <name>hive.metastore.server.max.threads</name>
+        <value>10000</value>
+        </property>
+        <property>
+            <name>hive.metastore.disallow.incompatible.col.type.changes</name>
+            <value>false</value>
+        </property>
+
+        {{if .Values.metrics.jmx.enable}}
+        <!-- 开启hiveserver2服务metrics -->
+        <property>
+            <name>hive.server2.metrics.enabled</name>
+            <value>true</value>
+        </property>
+        <!-- 开启metastore服务metrics -->
+        <property>
+            <name>hive.metastore.metrics.enabled</name>
+            <value>true</value>
+        </property>
+        <!-- 可使用默认值，无需修改 -->
+        <property>
+            <name>hive.service.metrics.class</name>
+            <value>org.apache.hadoop.hive.common.metrics.metrics2.CodahaleMetrics</value>
+        </property>
+        <!-- 可使用默认值，无需修改 -->
+        <property>
+            <name>hive.service.metrics.reporter</name>
+            <value>JSON_FILE, JMX</value>
+        </property>
+        {{end}}
+
+          <!-- 不使用登录hivejdbc的用户来访问hdfs -->
+        <property>
+            <name>hive.server2.enable.doAs</name>
+            <value>false</value>
+        </property>
+
+    </configuration>
+
+
+
+  hive-env.sh: |
+    # Set Hive and Hadoop environment variables here. These variables can be used
+    # to control the execution of Hive. It should be used by admins to configure
+    # the Hive installation (so that users do not have to set environment variables
+    # or set command line parameters to get correct behavior).
+    #
+    # The hive service being invoked (CLI etc.) is available via the environment
+    # variable SERVICE
+  
+  
+    # Hive Client memory usage can be an issue if a large number of clients
+    # are running at the same time. The flags below have been useful in
+    # reducing memory usage:
+    #
+    # if [ "$SERVICE" = "cli" ]; then
+    #   if [ -z "$DEBUG" ]; then
+    #     export HADOOP_OPTS="$HADOOP_OPTS -XX:NewRatio=12 -Xms10m -XX:MaxHeapFreeRatio=40 -XX:MinHeapFreeRatio=15 -XX:+UseParNewGC -XX:-UseGCOverheadLimit"
+    #   else
+    #     export HADOOP_OPTS="$HADOOP_OPTS -XX:NewRatio=12 -Xms10m -XX:MaxHeapFreeRatio=40 -XX:MinHeapFreeRatio=15 -XX:-UseGCOverheadLimit"
+    #   fi
+    # fi
+  
+    # The heap size of the jvm stared by hive shell script can be controlled via:
+    #
+    # export HADOOP_HEAPSIZE=1024
+    #
+    # Larger heap size may be required when running queries over large number of files or partitions.
+    # By default hive shell scripts use a heap size of 256 (MB).  Larger heap size would also be
+    # appropriate for hive server.
+  
+  
+    # Set HADOOP_HOME to point to a specific hadoop install directory
+    # HADOOP_HOME=${bin}/../../hadoop
+  
+    # Hive Configuration Directory can be controlled by:
+    # export HIVE_CONF_DIR=
+  
+    # Folder containing extra libraries required for hive compilation/execution can be controlled by:
+    # export HIVE_AUX_JARS_PATH=
+
+    {{if .Values.metrics.jmx.enable}}
+    # metastore服务器开启jmx监控
+    if [ "$SERVICE" = "metastore" ]; then
+      JMX_OPTS="-Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Dcom.sun.management.jmxremote.port=8003"
+      export HIVE_METASTORE_HADOOP_OPTS="$HIVE_METASTORE_HADOOP_OPTS $JMX_OPTS"
+    fi
+    # server2服务开启jmx监控
+    if [ "$SERVICE" = "hiveserver2" ]; then
+    export HADOOP_CLIENT_OPTS="$HADOOP_CLIENT_OPTS  -Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Dcom.sun.management.jmxremote.port=8003"
+    fi
+    {{end}}
+
+
+
+  hive-log4j2.properties: |
+
+    status=INFO
+    name=HiveLog4j2
+    packages=org.apache.hadoop.hive.ql.log
+    # list of properties
+
+    property.hive.log.level=INFO
+    property.hive.root.logger=DRFA
+    property.hive.log.dir=${sys:java.io.tmpdir}/${sys:user.name}
+    property.hive.log.file=hive.log
+    property.hive.perflogger.log.level=INFO
+
+    # list of all appenders
+    appenders=console, DRFA
+
+    # console appender
+    appender.console.type=Console
+    appender.console.name=console
+    appender.console.target=SYSTEM_ERR
+    appender.console.layout.type=PatternLayout
+    appender.console.layout.pattern=%d{ISO8601} %5p [%t] %c{2}: %m%n
+    # daily rolling file appender
+    appender.DRFA.type=RollingRandomAccessFile
+    appender.DRFA.name=DRFA
+    appender.DRFA.fileName=${sys:hive.log.dir}/${sys:hive.log.file}
+    # Use %pid in the filePattern to append <process-id>@<host-name> to the filename if you want separate log files for different CLI session
+    appender.DRFA.filePattern=${sys:hive.log.dir}/${sys:hive.log.file}.%d{yyyy-MM-dd}
+    appender.DRFA.layout.type=PatternLayout
+    appender.DRFA.layout.pattern=%d{ISO8601} %5p [%t] %c{2}: %m%n
+    appender.DRFA.policies.type=Policies
+    appender.DRFA.policies.time.type=TimeBasedTriggeringPolicy
+    appender.DRFA.policies.time.interval=1
+    appender.DRFA.policies.time.modulate=true
+    appender.DRFA.strategy.type=DefaultRolloverStrategy
+    appender.DRFA.strategy.max=30
+    # list of all loggers
+    loggers=NIOServerCnxn, ClientCnxnSocketNIO, DataNucleus, Datastore, JPOX, PerfLogger
+    logger.NIOServerCnxn.name=org.apache.zookeeper.server.NIOServerCnxn
+    logger.NIOServerCnxn.level=WARN
+    logger.ClientCnxnSocketNIO.name=org.apache.zookeeper.ClientCnxnSocketNIO
+    logger.ClientCnxnSocketNIO.level=WARN
+    logger.DataNucleus.name=DataNucleus
+    logger.DataNucleus.level=ERROR
+    logger.Datastore.name=Datastore
+    logger.Datastore.level=ERROR
+    logger.JPOX.name=JPOX
+    logger.JPOX.level=ERROR
+    logger.PerfLogger.name=org.apache.hadoop.hive.ql.log.PerfLogger
+    logger.PerfLogger.level=${sys:hive.perflogger.log.level}
+    # root logger
+    rootLogger.level=${sys:hive.log.level}
+    rootLogger.appenderRefs=root
+    rootLogger.appenderRef.root.ref=${sys:hive.root.logger}
+
+    # 忽略thrift版本依赖不影响的异常：https://cloud.tencent.com/developer/article/1176657
+    appender.RFA.filter.1=org.apache.log4j.filter.ExpressionFilter
+    appender.RFA.filter.1.Expression=EXCEPTION ~= org.apache.thrift.transport.TSaslTransportException
+    appender.RFA.filter.1.AcceptOnMatch=false

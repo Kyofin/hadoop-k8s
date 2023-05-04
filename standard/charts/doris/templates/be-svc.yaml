@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{.Release.Name}}-doris-be-svc
+  labels:
+    app: doris-be
+spec:
+  ports:
+    - port: {{.Values.be.webserver_port}}
+      name: web
+  selector:
+    app: {{.Release.Name}}-doris-be

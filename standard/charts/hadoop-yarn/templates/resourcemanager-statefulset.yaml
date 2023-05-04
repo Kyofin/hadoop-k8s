@@ -1,0 +1,150 @@
+{{- $hostNetwork := .Values.hostNetwork }}
+kind: StatefulSet
+apiVersion: apps/v1
+metadata:
+  name: {{ .Release.Name}}-hadoop-yarn-resourcemanager
+  labels:
+    app: hadoop
+    component: yarn-rm
+    release: {{ .Release.Name}}
+spec:
+  replicas: {{ if  .Values.haMode }} 2 {{ else}} 1 {{end}}
+  selector:
+    matchLabels:
+      app: hadoop
+      component: yarn-rm
+      release: {{ .Release.Name}}
+  template:
+    metadata:
+      labels:
+        app: hadoop
+        component: yarn-rm
+        release: {{ .Release.Name}}
+    spec:
+      hostNetwork: {{ $hostNetwork }}
+      dnsPolicy: {{ .Values.dnsPolicy | default ($hostNetwork | ternary "ClusterFirstWithHostNet" "ClusterFirst") }}
+      {{- with .Values.resourceManager.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 10  }}
+      {{end}}
+      volumes:
+        {{ if .Values.metrics.jmx.enable}}
+        - name: jmx-config
+          configMap:
+            name: {{ .Release.Name}}-hadoop-yarn-jmx-configmap
+        {{end}}
+        - name: hadoop-fs-config
+          configMap:
+            name: {{  template "hadoop-fs-conf" .}}
+            defaultMode: 420
+        - name: hadoop-yarn-config
+          configMap:
+            name: {{ .Release.Name}}-hadoop-yarn-conf
+        - name: hadoop-script
+          configMap:
+            name: {{ .Release.Name}}-hadoop-yarn-script
+      containers:
+        {{if .Values.metrics.jmx.enable}}
+        - name: jmx-exporter
+          resources:
+            limits:
+              cpu: '100m'
+              memory: 300Mi
+            requests:
+              cpu: '100m'
+              memory: 300Mi
+          env:
+            - name: SERVICE_PORT
+              value: "18007"
+            - name: JVM_OPTS
+              value: " "
+          image: {{ .Values.metrics.jmx.image }}
+          imagePullPolicy: Always
+          ports:
+            - name: metrics
+              containerPort: 18007
+          volumeMounts:
+            - name: jmx-config
+              mountPath: /opt/jmx_exporter/config.yml
+              subPath: yarn-resourcemanager-config.yml
+          livenessProbe:
+            failureThreshold: 8
+            httpGet:
+              path: /metrics
+              port: 18007
+            initialDelaySeconds: 30
+            periodSeconds: 15
+            successThreshold: 1
+            timeoutSeconds: 60
+          readinessProbe:
+            failureThreshold: 8
+            httpGet:
+              path: /metrics
+              port: 18007
+            initialDelaySeconds: 30
+            periodSeconds: 15
+            successThreshold: 1
+            timeoutSeconds: 60
+        {{end}}
+        - name: yarn-rm
+          image: {{.Values.image }}
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: TZ
+              value: "Asia/Shanghai"
+          command:
+            - /bin/bash
+            - /tmp/hadoop-script/bootstrap.sh
+            - '-d'
+          ports:
+            - name: web
+              containerPort: 8088
+              protocol: TCP
+          resources:
+            limits:
+              cpu: {{ .Values.resourceManager.cpu }}
+              memory: {{ .Values.resourceManager.memory }}
+            requests:
+              cpu: {{ .Values.resourceManager.cpu }}
+              memory: {{ .Values.resourceManager.memory }}
+          volumeMounts:
+            - name: hadoop-fs-config
+              mountPath: /tmp/hadoop-fs-config
+            - name: hadoop-yarn-config
+              mountPath: /tmp/hadoop-yarn-config
+            - name: hadoop-script
+              mountPath: /tmp/hadoop-script
+          livenessProbe:
+            httpGet:
+              path: /ws/v1/cluster/info
+              port: 8088
+              scheme: HTTP
+            initialDelaySeconds: 10
+            timeoutSeconds: 2
+          readinessProbe:
+            httpGet:
+              path: /ws/v1/cluster/info
+              port: 8088
+              scheme: HTTP
+            initialDelaySeconds: 5
+            timeoutSeconds: 2
+          imagePullPolicy: Always
+      terminationGracePeriodSeconds: 0
+      securityContext: {}
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 5
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    app: hadoop
+                    component: yarn-rm
+                    release: {{ .Release.Name}}
+                topologyKey: kubernetes.io/hostname
+  serviceName: {{ .Release.Name}}-hadoop-yarn-resourcemanager
+  podManagementPolicy: OrderedReady
+

@@ -1,0 +1,45 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{.Release.Name}}-hbase-jmx-configmap
+  labels:
+    app: hbase
+data:
+  hbase-master.yml: |-
+    hostPort: localhost:8001
+    lowercaseOutputName: true
+    lowercaseOutputLabelNames: true 
+    rules:
+        - pattern: Hadoop<service=HBase, name=RegionServer, sub=Regions><>Namespace_([^\W_]+)_table_([^\W_]+)_region_([^\W_]+)_metric_(\w+)
+          name: HBase_metric_$4
+          labels:
+            namespace: "$1"
+            table: "$2"
+            region: "$3"
+        - pattern: Hadoop<service=(\w+), name=(\w+), sub=(\w+)><>([\w._]+)
+          name: hadoop_$1_$4
+          labels:
+            "name": "$2"
+            "sub": "$3"
+        - pattern: .+
+    ssl: false
+    startDelaySeconds: 30
+  hbase-region.yml: |-
+    hostPort: localhost:8011
+    lowercaseOutputName: true
+    lowercaseOutputLabelNames: true 
+    rules:
+      - pattern: Hadoop<service=HBase, name=RegionServer, sub=Regions><>Namespace_([^\W_]+)_table_([^\W_]+)_region_([^\W_]+)_metric_(\w+)
+        name: HBase_metric_$4
+        labels:
+          namespace: "$1"
+          table: "$2"
+          region: "$3"
+      - pattern: Hadoop<service=(\w+), name=(\w+), sub=(\w+)><>([\w._]+)
+        name: hadoop_$1_$4
+        labels:
+          "name": "$2"
+          "sub": "$3"
+      - pattern: .+
+    ssl: false
+    startDelaySeconds: 30

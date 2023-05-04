@@ -1,0 +1,30 @@
+
+image:
+  repository: registry.mufankong.top/bigdata/hadoop-hbase
+  tag: 1.3.6
+  pullPolicy: IfNotPresent
+
+global:
+  # zookeeperQuorumOverride: zk-0.zk-svc.default.svc.cluster.local:2181,zk-1.zk-svc.default.svc.cluster.local:2181,zk-2.zk-svc.default.svc.cluster.local:2181
+  zookeeperQuorumSize: 3
+
+master:
+  haMode: true
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "100m"
+  nodeSelector: {}
+
+region:
+  replicas: 3
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "100m"
+  nodeSelector: {}
+
+metrics:
+  jmx:
+    enable: true
+    image: registry.mufankong.top/bigdata/jmx-prometheus-exporter:0.12.0-openjdk

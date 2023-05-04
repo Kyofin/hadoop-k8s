@@ -1,0 +1,47 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{.Release.Name}}-hive-client-cfg
+  labels:
+    app: hive
+data:
+  hive-site.xml: |
+    <?xml version="1.0"?>
+    <?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
+    <configuration>
+        
+        <property>
+            <name>hive.metastore.uris</name>
+            <value>{{template "hive-metastore-headless-uri" .}}</value>
+        </property>
+
+        <property>
+            <name>hive.metastore.warehouse.dir</name>
+            <value>{{template "hive.warehouse.dir" .}}</value>
+        </property>
+
+
+        <property>
+        <name>hive.metastore.server.max.threads</name>
+        <value>10000</value>
+        </property>
+
+        <property>
+            <name>hive.server2.enable.doAs</name>
+            <value>false</value>
+        </property>
+
+        <property>
+            <name>hive.metastore.client.connect.retry.delay</name>
+            <value>5</value>
+        </property>
+
+        <property>
+            <name>hive.metastore.client.socket.timeout</name>
+            <value>1800</value>
+        </property>
+
+
+
+    </configuration>
+

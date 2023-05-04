@@ -1,0 +1,32 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{.Release.Name}}-hive-script
+  labels:
+    app: hive
+data:
+  start-metastore.sh: |
+    #!/bin/bash
+    set -ex
+    set -o pipefail
+    echo "ready start metastore ...."
+    mkdir -p /tmp/root
+    touch /tmp/root/hive.log
+    nohup $HIVE_HOME/bin/hive  --service  metastore  > /tmp/hms.log 2>&1 &
+
+
+    tail -F /tmp/root/*.log
+
+
+  start-hiveserver2.sh: |
+    #!/bin/bash
+    set -ex
+    set -o pipefail
+    echo "ready start hiveserver2 ...."
+    mkdir -p /tmp/root
+    touch /tmp/root/hive.log
+    echo "使用hadoop fs创建hive数仓存储目录 ...."
+    hdfs dfs -mkdir -p  {{template "hive.warehouse.dir" .}}
+    hdfs dfs -chmod g+w {{template "hive.warehouse.dir" .}}
+    nohup $HIVE_HOME/bin/hive  --service  hiveserver2  > /tmp/hms.log 2>&1 &
+    tail -F /tmp/root/*.log

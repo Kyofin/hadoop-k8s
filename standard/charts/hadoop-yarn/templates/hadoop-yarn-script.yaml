@@ -1,0 +1,197 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name}}-hadoop-yarn-script
+  labels:
+    app: hadoop-yarn
+data:
+  bootstrap.sh: |
+    #!/bin/bash
+    set -ex
+    set -o pipefail
+    
+    : ${HADOOP_PREFIX:=/usr/local/hadoop}
+
+    . $HADOOP_PREFIX/etc/hadoop/hadoop-env.sh
+
+    # Directory to find config artifacts
+    YARN_CONFIG_DIR="/tmp/hadoop-yarn-config"
+    FS_CONFIG_DIR="/tmp/hadoop-fs-config"
+     # Directory to find script artifacts
+    SCRIPT_DIR="/tmp/hadoop-script"
+
+    # create hadoop temp dir
+     mkdir -p /root/hadoop/tmp
+
+    # Copy config files from volume mount
+
+    for f in  mapred-site.xml yarn-site.xml  yarn-env.sh capacity-scheduler.xml; do
+      if [[ -e ${YARN_CONFIG_DIR}/$f ]]; then
+        cp ${YARN_CONFIG_DIR}/$f $HADOOP_PREFIX/etc/hadoop/$f
+      else
+        echo "ERROR: Could not find $f in YARN_CONFIG_DIR"
+        exit 1
+      fi
+    done
+
+    for f in  core-site.xml hdfs-site.xml  httpfs-site.xml ; do
+      if [[ -e ${FS_CONFIG_DIR}/$f ]]; then
+        cp ${FS_CONFIG_DIR}/$f $HADOOP_PREFIX/etc/hadoop/$f
+      else
+        echo "ERROR: Could not find $f in FS_CONFIG_DIR"
+        exit 1
+      fi
+    done
+
+    # installing libraries if any - (resource urls added comma separated to the ACP system variable)
+    cd $HADOOP_PREFIX/share/hadoop/common ; for cp in ${ACP//,/ }; do  echo == $cp; curl -LO $cp ; done; cd -
+
+    if [[ "${HOSTNAME}" =~ "hdfs-nn" ]]; then
+
+      if [ -f /root/hdfs/namenode/current/VERSION ]
+      then
+        echo "==============The file exist , namenode no need format ==============="
+      else
+        echo "==============The file doesn't exist , namenode  need format ==============="
+        mkdir -p /root/hdfs/namenode
+        $HADOOP_PREFIX/bin/hdfs namenode -format -force -nonInteractive
+      fi
+
+      $HADOOP_PREFIX/sbin/hadoop-daemon.sh start namenode
+    fi
+
+    if [[ "${HOSTNAME}" =~ "hdfs-dn" ]]; then
+      mkdir -p /root/hdfs/datanode
+
+      #  wait up to 30 seconds for namenode
+      (while [[ $count -lt 15 && -z `curl -sf http://bigdata-hadoop-hdfs-nn:50070` ]]; do ((count=count+1)) ; echo "Waiting for bigdata-hadoop-hdfs-nn" ; sleep 2; done && [[ $count -lt 15 ]])
+      [[ $? -ne 0 ]] && echo "Timeout waiting for hdfs-nn, exiting." && exit 1
+
+      $HADOOP_PREFIX/sbin/hadoop-daemon.sh start datanode
+    fi
+
+    if [[ "${POD_NAME}" =~ "{{ .Release.Name}}-hadoop-yarn-resourcemanager-1" ]]; then
+       sed -i '/<\/configuration>/d' $HADOOP_PREFIX/etc/hadoop/yarn-site.xml
+       cat >> $HADOOP_PREFIX/etc/hadoop/yarn-site.xml <<- EOM
+           <property>
+            <name>yarn.resourcemanager.ha.id</name>
+            <value>rm1</value>
+           </property>
+    EOM
+      echo '</configuration>' >> $HADOOP_PREFIX/etc/hadoop/yarn-site.xml
+      cp ${SCRIPT_DIR}/start-yarn-rm.sh $HADOOP_PREFIX/sbin/
+      cd $HADOOP_PREFIX/sbin
+      chmod +x start-yarn-rm.sh
+      ./start-yarn-rm.sh
+    fi
+    
+    if [[ "${POD_NAME}" =~ "{{ .Release.Name}}-hadoop-yarn-resourcemanager-0" ]]; then
+       sed -i '/<\/configuration>/d' $HADOOP_PREFIX/etc/hadoop/yarn-site.xml
+       cat >> $HADOOP_PREFIX/etc/hadoop/yarn-site.xml <<- EOM
+           <property>
+            <name>yarn.resourcemanager.ha.id</name>
+            <value>rm0</value>
+           </property>
+    EOM
+      echo '</configuration>' >> $HADOOP_PREFIX/etc/hadoop/yarn-site.xml
+      cp ${SCRIPT_DIR}/start-yarn-rm.sh $HADOOP_PREFIX/sbin/
+      cd $HADOOP_PREFIX/sbin
+      chmod +x start-yarn-rm.sh
+      ./start-yarn-rm.sh
+    fi
+    
+     if [[ "${POD_NAME}" =~ "mr-jobhistory" ]]; then
+      cp ${SCRIPT_DIR}/start-mr-jobhistory.sh $HADOOP_PREFIX/sbin/
+      cd $HADOOP_PREFIX/sbin
+      mkdir -p $HADOOP_PREFIX/logs
+      chmod +x start-mr-jobhistory.sh
+      ./start-mr-jobhistory.sh
+    fi
+
+    if [[ "${POD_NAME}" =~ "{{ .Release.Name}}-hadoop-yarn-nodemanager" ]]; then
+      cp ${SCRIPT_DIR}/start-yarn-nm.sh $HADOOP_PREFIX/sbin/
+      cd $HADOOP_PREFIX/sbin
+      chmod +x start-yarn-nm.sh
+
+      #  wait up to 30 seconds for resourcemanager
+      (while [[ $count -lt 15 && -z `curl -sf http://{{ .Release.Name}}-hadoop-yarn-resourcemanager:8088/ws/v1/cluster/info` ]]; do ((count=count+1)) ; echo "Waiting for {{ .Release.Name}}-hadoop-yarn-resourcemanager" ; sleep 2; done && [[ $count -lt 15 ]])
+      [[ $? -ne 0 ]] && echo "Timeout waiting for yarn-rm, exiting." && exit 1
+
+      ./start-yarn-nm.sh
+    fi
+
+    if [[ $1 == "-d" ]]; then
+      (while [[ $count -lt 15 && -z `find ${HADOOP_PREFIX}/logs -mmin -2 -name '*.log'` ]]; do ((count=count+1)) ; echo "Waiting for log....." ; sleep 2; done && [[ $count -lt 15 ]])
+      tail -F ${HADOOP_PREFIX}/logs/*.log
+    fi
+
+    if [[ $1 == "-bash" ]]; then
+      /bin/bash
+    fi
+
+  start-yarn-nm.sh: |
+    #!/usr/bin/env bash
+
+    # Start all yarn daemons.  Run this on master node.
+
+    echo "starting yarn daemons"
+
+    bin=`dirname "${BASH_SOURCE-$0}"`
+    bin=`cd "$bin"; pwd`
+
+    DEFAULT_LIBEXEC_DIR="$bin"/../libexec
+    HADOOP_LIBEXEC_DIR=${HADOOP_LIBEXEC_DIR:-$DEFAULT_LIBEXEC_DIR}
+    . $HADOOP_LIBEXEC_DIR/yarn-config.sh
+
+    # start resourceManager
+    # "$bin"/yarn-daemon.sh --config $YARN_CONF_DIR  start resourcemanager
+    # start nodeManager
+    "$bin"/yarn-daemon.sh --config $YARN_CONF_DIR  start nodemanager
+    # start proxyserver
+    #"$bin"/yarn-daemon.sh --config $YARN_CONF_DIR  start proxyserver
+
+  start-mr-jobhistory.sh: |
+    #!/usr/bin/env bash
+
+    # Start all yarn daemons.  Run this on master node.
+
+    echo "starting mr jobhistory "
+
+    bin=`dirname "${BASH_SOURCE-$0}"`
+    bin=`cd "$bin"; pwd`
+
+    DEFAULT_LIBEXEC_DIR="$bin"/../libexec
+    HADOOP_LIBEXEC_DIR=${HADOOP_LIBEXEC_DIR:-$DEFAULT_LIBEXEC_DIR}
+    . $HADOOP_LIBEXEC_DIR/yarn-config.sh
+
+    # start resourceManager
+    # "$bin"/yarn-daemon.sh --config $YARN_CONF_DIR  start resourcemanager
+    # start nodeManager
+    #"$bin"/yarn-daemon.sh --config $YARN_CONF_DIR  start nodemanager
+    # start proxyserver
+    #"$bin"/yarn-daemon.sh --config $YARN_CONF_DIR  start proxyserver
+    # start mr history
+    "$bin"/mr-jobhistory-daemon.sh --config $YARN_CONF_DIR  start historyserver
+
+
+  start-yarn-rm.sh: |
+    #!/usr/bin/env bash
+
+    # Start all yarn daemons.  Run this on master node.
+
+    echo "starting yarn daemons"
+
+    bin=`dirname "${BASH_SOURCE-$0}"`
+    bin=`cd "$bin"; pwd`
+
+    DEFAULT_LIBEXEC_DIR="$bin"/../libexec
+    HADOOP_LIBEXEC_DIR=${HADOOP_LIBEXEC_DIR:-$DEFAULT_LIBEXEC_DIR}
+    . $HADOOP_LIBEXEC_DIR/yarn-config.sh
+
+    # start resourceManager
+    "$bin"/yarn-daemon.sh --config $YARN_CONF_DIR  start resourcemanager
+    # start nodeManager
+    # "$bin"/yarn-daemons.sh --config $YARN_CONF_DIR  start nodemanager
+    # start proxyserver
+    #"$bin"/yarn-daemon.sh --config $YARN_CONF_DIR  start proxyserver
+

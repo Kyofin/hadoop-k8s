@@ -1,0 +1,51 @@
+image: registry.mufankong.top/bigdata/poker/hadoop-yarn:2.10.2-all
+
+## hadoop的Filesystem类型：支持minio/juicefs/hdfs
+hadoopFileSystemType: hdfs
+
+
+
+
+
+haMode: true
+## The number of zookeeper server to have in the quorum.
+## This should match zookeeper.replicaCount above. Used only when
+## haMode is set.
+zookeeperQuorumSize: 3
+
+## Override zookeeper quorum address. Zookeeper is used for determining which resourcemanager
+## instance is active. Separated by the comma character. Used only when
+## haMode is set.
+##  不填时自动按规则生成，访问内置的zk
+##
+#zookeeperQuorumOverride: zookeeper-0.zookeeper-headless.bigdata-dev.svc.cluster.local:2181,zookeeper-1.zookeeper-headless.bigdata-dev.svc.cluster.local:2181,zookeeper-2.zookeeper-headless.bigdata-dev.svc.cluster.local:2181
+
+
+resourceManager:
+  cpu: "1"
+  memory: "2Gi"
+  nodeSelector: {}
+
+
+nodeManager:
+  replicas: 3
+  cpu: "4"
+  memory: "8Gi"
+  nodeSelector: {}
+
+
+
+mrHistory:
+  nodeSelector: {}
+
+
+hostNetwork: false
+
+
+
+metrics:
+  jmx:
+    enable: true
+    image: registry.mufankong.top/bigdata/jmx-prometheus-exporter:0.12.0-openjdk
+  serviceMonitor:
+    enable: true

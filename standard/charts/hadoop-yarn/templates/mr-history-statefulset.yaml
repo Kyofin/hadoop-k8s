@@ -1,0 +1,89 @@
+kind: StatefulSet
+apiVersion: apps/v1
+metadata:
+  name: {{ .Release.Name}}-hadoop-mr-jobhistory
+  labels:
+    app: hadoop
+    component: mr-jobhistory
+    release: bigdata
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: hadoop
+      component: mr-jobhistory
+      release: bigdata
+  template:
+    metadata:
+      labels:
+        app: hadoop
+        component: mr-jobhistory
+        release: bigdata
+    spec:
+      nodeSelector:
+      {{ toYaml .Values.mrHistory.nodeSelector | indent 8 }}
+      volumes:
+        - name: hadoop-fs-config
+          configMap:
+              name: {{  template "hadoop-fs-conf" .}}
+              defaultMode: 420
+        - name: hadoop-yarn-config
+          configMap:
+            name: {{ .Release.Name}}-hadoop-yarn-conf
+            defaultMode: 420
+        - name: hadoop-script
+          configMap:
+            name: {{ .Release.Name}}-hadoop-yarn-script
+      containers:
+        - name: mr-jobhistory
+          image: {{ .Values.image }}
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: TZ
+              value: "Asia/Shanghai"
+          command:
+            - /bin/bash
+            - /tmp/hadoop-script/bootstrap.sh
+            - '-d'
+          ports:
+            - name: web
+              containerPort: 19888
+              protocol: TCP
+          resources:
+            limits:
+              cpu: '2'
+              memory: 2Gi
+            requests:
+              cpu: 10m
+              memory: 256Mi
+          volumeMounts:
+            - name: hadoop-fs-config
+              mountPath: /tmp/hadoop-fs-config
+            - name: hadoop-yarn-config
+              mountPath: /tmp/hadoop-yarn-config
+            - name: hadoop-script
+              mountPath: /tmp/hadoop-script
+          livenessProbe:
+            httpGet:
+              path: /ws/v1/history/info
+              port: 19888
+              scheme: HTTP
+            initialDelaySeconds: 10
+            timeoutSeconds: 2
+          readinessProbe:
+            httpGet:
+              path: /ws/v1/history/info
+              port: 19888
+              scheme: HTTP
+            initialDelaySeconds: 5
+            timeoutSeconds: 2
+          imagePullPolicy: Always
+      terminationGracePeriodSeconds: 0
+      securityContext: {}
+
+  serviceName: {{ .Release.Name}}-hadoop-mr-jobhistory
+  podManagementPolicy: OrderedReady
+

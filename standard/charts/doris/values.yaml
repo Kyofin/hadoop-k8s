@@ -1,0 +1,26 @@
+
+fe:
+  image: registry.mufankong.top/bigdata/doris-fe:1.1.0
+  nodeSelector: { }
+  http_port: 8030
+  rpc_port: 9020
+  # mysql连接使用的端口
+  query_port: 9030
+  edit_log_port: 9010
+
+
+
+be:
+  image: registry.mufankong.top/bigdata/doris-be:1.1.0
+  replicas: 3
+  nodeSelector: { }
+  be_port : 9060
+  webserver_port: 8041
+  heartbeat_service_port: 9050
+  brpc_port: 8060
+
+
+
+
+
+

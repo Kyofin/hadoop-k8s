@@ -1,0 +1,11 @@
+image: registry.mufankong.top/bigdata/juicefs:1.0.2
+
+# 默认使用内置的pg和minio作为底层元数据和存储，需要使用外部的才需要填写下面内容
+#meta_url: "mysql://root:bigdata@(10.81.17.8:33066)/juicefs_k8s"
+#stroage: "minio"
+#bucket: "http://minio-01:9000/myjfs"
+#access_key: "minio"
+#secret_key: "minio123"
+
+gataway_user: admin
+gataway_password: admin12345678

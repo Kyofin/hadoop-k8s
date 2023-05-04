@@ -1,0 +1,92 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{.Release.Name}}-doris-be
+  labels:
+    app: {{.Release.Name}}-doris-be
+spec:
+  replicas: {{.Values.be.replicas}}
+  volumeClaimTemplates:
+    - metadata:
+        name: pvc-doris-be
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 300Gi
+  serviceName: doris-be-headless
+  selector:
+    matchLabels:
+      app: {{.Release.Name}}-doris-be
+  template:
+    metadata:
+      labels:
+        app: {{.Release.Name}}-doris-be
+    spec:
+      nodeSelector:
+      {{ toYaml .Values.be.nodeSelector | indent 8 }}
+      volumes:
+        - name: doris-script
+          configMap:
+            name: {{.Release.Name}}-doris-script-configmap
+            defaultMode: 0744
+        - name: doris-conf
+          configMap:
+            name: {{.Release.Name}}-doris-configmap
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+      containers:
+        - name: doris-be
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: TZ
+              value: "Asia/Shanghai"
+            - name: BE_IPADDRESS
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+          image: {{.Values.be.image}}
+          imagePullPolicy: Always
+          command: [ "/bin/bash", "-ce", "/opt/script/be_bootstrap.sh  " ]
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: {{.Values.be.webserver_port}}
+            initialDelaySeconds: 300
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+          ports:
+            - containerPort: {{.Values.be.be_port}}
+              protocol: TCP
+            - containerPort: 9070
+              protocol: TCP
+            - containerPort: {{.Values.be.webserver_port}}
+              protocol: TCP
+            - containerPort: {{.Values.be.heartbeat_service_port}}
+              protocol: TCP
+            - containerPort: {{.Values.be.brpc_port}}
+              protocol: TCP
+          resources:
+            limits:
+              cpu: "2"
+              memory: 2G
+            requests:
+              cpu: 200m
+              memory: 1G
+          volumeMounts:
+            - name: pvc-doris-be
+              mountPath: /opt/doris/be/storage
+            - name: doris-conf
+              mountPath: /opt/doris/be/conf/be.conf
+              subPath: be.conf
+            - name: doris-script
+              mountPath: /opt/register_be.sh
+              subPath: register_be.sh
+            - name: doris-script
+              mountPath: /opt/script
+

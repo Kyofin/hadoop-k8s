@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{.Release.Name}}-doris-fe-svc
+  labels:
+    app: doris-fe
+spec:
+  ports:
+    - port: {{.Values.fe.http_port}}
+      name: web
+    - port: {{.Values.fe.query_port}}
+      name: mysql
+  selector:
+    app: {{.Release.Name}}-doris-fe

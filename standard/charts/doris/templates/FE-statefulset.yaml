@@ -1,0 +1,82 @@
+kind: StatefulSet
+apiVersion: apps/v1
+metadata:
+  name: {{.Release.Name}}-doris-fe
+  labels:
+    app: {{.Release.Name}}-doris-fe
+spec:
+  replicas: 1
+  volumeClaimTemplates:
+    - metadata:
+        name: pvc-doris-fe
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 300Gi
+  serviceName: doris-fe-headless
+  selector:
+    matchLabels:
+      app: {{.Release.Name}}-doris-fe
+  template:
+    metadata:
+      labels:
+        app: {{.Release.Name}}-doris-fe
+    spec:
+      volumes:
+        - name: doris-conf
+          configMap:
+            name: {{.Release.Name}}-doris-configmap
+        - name: doris-script
+          configMap:
+              name: {{.Release.Name}}-doris-script-configmap
+              defaultMode: 0744
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+      nodeSelector:
+      {{ toYaml .Values.fe.nodeSelector | indent 8 }}
+      containers:
+        - name: doris-fe
+          env:
+            - name: TZ
+              value: "Asia/Shanghai"
+            - name: FE_IPADDRESS
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+          image: {{.Values.fe.image}}
+          imagePullPolicy: Always
+          command: [ "/bin/bash", "-ce", "/opt/script/fe_bootstrap.sh" ]
+          volumeMounts:
+            - name: pvc-doris-fe
+              mountPath: /opt/doris/fe/doris-meta
+            - name: doris-conf
+              mountPath: /opt/doris/fe/conf/fe.conf
+              subPath: fe.conf
+            - name: doris-script
+              mountPath: /opt/script
+          livenessProbe:
+            httpGet:
+              path: /api/bootstrap
+              port: {{.Values.fe.http_port}}
+            initialDelaySeconds: 300
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+          ports:
+            - containerPort: {{.Values.fe.http_port}}
+              protocol: TCP
+            - containerPort: {{.Values.fe.rpc_port}}
+              protocol: TCP
+            - containerPort: {{.Values.fe.query_port}}
+              protocol: TCP
+            - containerPort: {{.Values.fe.edit_log_port}}
+              protocol: TCP
+          resources:
+            limits:
+              cpu: 2
+              memory: 4G
+            requests:
+              cpu: 200m
+              memory: 1G

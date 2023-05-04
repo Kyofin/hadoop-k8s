@@ -1,0 +1,17 @@
+# Service to access the yarn web ui
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{.Release.Name}}-hadoop-yarn-ui
+  labels:
+    app: hadoop
+    release: {{.Release.Name}}
+    component: yarn-ui
+spec:
+  ports:
+  - port: 8088
+    name: web
+  selector:
+    app: hadoop
+    component: yarn-rm
+    release: {{ .Release.Name}}

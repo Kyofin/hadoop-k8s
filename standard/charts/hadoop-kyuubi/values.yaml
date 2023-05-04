@@ -1,0 +1,50 @@
+hadoopFileSystemType: "hdfs"
+# Kyuubi server numbers
+replicaCount: 1
+
+image:
+  repository: registry.mufankong.top/bigdata/hadoop-kyuubi
+  pullPolicy: Always
+  # Overrides the image tag whose default is the chart appVersion.
+  tag: "1.6.1"
+
+probe:
+  liveness:
+    enabled: true
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    failureThreshold: 10
+  readiness:
+    enabled: true
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    failureThreshold: 10
+
+server:
+  bind:
+    host: 0.0.0.0
+    port: 10009
+
+
+service:
+  # The default port limit of kubernetes is 30000-32767
+  # to change:
+  #   vim kube-apiserver.yaml (usually under path: /etc/kubernetes/manifests/)
+  #   add or change line 'service-node-port-range=1-32767' under kube-apiserver
+  annotations: {}
+
+resources: {}
+  # Used to specify resource, default unlimited.
+  # If you do want to specify resources:
+  #   1. remove the curly braces after 'resources:'
+  #   2. uncomment the following lines
+  # limits:
+  #   cpu: 4
+  #   memory: 10Gi
+  # requests:
+  #   cpu: 2
+  #   memory: 4Gi
+
+# spark engine启动时的计算资源，可以指定yarn还是kubernetes
+sparkMasterType: yarn
+sparkOnK8sImage: registry.mufankong.top/bigdata/spark-k8s-native:3.2.1-hadoop2.7

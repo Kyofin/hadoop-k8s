@@ -1,0 +1,472 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name}}-hadoop-yarn-conf
+  labels:
+    app: hadoop-yarn
+data:
+
+  mapred-site.xml: |
+    <?xml version="1.0"?>
+    <?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
+
+    <configuration>
+      <property>
+        <name>mapreduce.framework.name</name>
+        <value>yarn</value>
+      </property>
+      <property>
+        <name>mapreduce.jobhistory.address</name>
+        <value>{{ .Release.Name}}-hadoop-mr-jobhistory-0.{{ .Release.Name}}-hadoop-mr-jobhistory.{{.Release.Namespace}}.svc.cluster.local:10020</value>
+      </property>
+      <property>
+        <name>mapreduce.jobhistory.webapp.address</name>
+        <value>{{ .Release.Name}}-hadoop-mr-jobhistory-0.{{ .Release.Name}}-hadoop-mr-jobhistory.{{.Release.Namespace}}.svc.cluster.local:19888</value>
+      </property>
+     <property>
+           <name>mapreduce.map.memory.mb</name>
+           <value>5120</value>
+     </property>
+     <property>
+           <name>mapreduce.reduce.memory.mb</name>
+           <value>5120</value>
+     </property>
+    </configuration>
+
+  yarn-env.sh: |
+    # User for YARN daemons
+    export HADOOP_YARN_USER=${HADOOP_YARN_USER:-yarn}
+    
+    # resolve links - $0 may be a softlink
+    export YARN_CONF_DIR="${YARN_CONF_DIR:-$HADOOP_YARN_HOME/conf}"
+    
+    # some Java parameters
+    # export JAVA_HOME=/home/y/libexec/jdk1.6.0/
+    if [ "$JAVA_HOME" != "" ]; then
+      #echo "run java in $JAVA_HOME"
+      JAVA_HOME=$JAVA_HOME
+    fi
+    
+    if [ "$JAVA_HOME" = "" ]; then
+      echo "Error: JAVA_HOME is not set."
+      exit 1
+    fi
+    
+    JAVA=$JAVA_HOME/bin/java
+    JAVA_HEAP_MAX=-Xmx1000m 
+    
+    # For setting YARN specific HEAP sizes please use this
+    # Parameter and set appropriately
+    # YARN_HEAPSIZE=1000
+    
+    # check envvars which might override default args
+    if [ "$YARN_HEAPSIZE" != "" ]; then
+      JAVA_HEAP_MAX="-Xmx""$YARN_HEAPSIZE""m"
+    fi
+    
+    # Resource Manager specific parameters
+    
+    # Specify the max Heapsize for the ResourceManager using a numerical value
+    # in the scale of MB. For example, to specify an jvm option of -Xmx1000m, set
+    # the value to 1000.
+    # This value will be overridden by an Xmx setting specified in either YARN_OPTS
+    # and/or YARN_RESOURCEMANAGER_OPTS.
+    # If not specified, the default value will be picked from either YARN_HEAPMAX
+    # or JAVA_HEAP_MAX with YARN_HEAPMAX as the preferred option of the two.
+    #export YARN_RESOURCEMANAGER_HEAPSIZE=1000
+    
+    # Specify the max Heapsize for the timeline server using a numerical value
+    # in the scale of MB. For example, to specify an jvm option of -Xmx1000m, set
+    # the value to 1000.
+    # This value will be overridden by an Xmx setting specified in either YARN_OPTS
+    # and/or YARN_TIMELINESERVER_OPTS.
+    # If not specified, the default value will be picked from either YARN_HEAPMAX
+    # or JAVA_HEAP_MAX with YARN_HEAPMAX as the preferred option of the two.
+    #export YARN_TIMELINESERVER_HEAPSIZE=1000
+    
+    # Specify the JVM options to be used when starting the ResourceManager.
+    # These options will be appended to the options specified as YARN_OPTS
+    # and therefore may override any similar flags set in YARN_OPTS
+    #export YARN_RESOURCEMANAGER_OPTS=
+    
+    # Node Manager specific parameters
+    
+    # Specify the max Heapsize for the NodeManager using a numerical value
+    # in the scale of MB. For example, to specify an jvm option of -Xmx1000m, set
+    # the value to 1000.
+    # This value will be overridden by an Xmx setting specified in either YARN_OPTS
+    # and/or YARN_NODEMANAGER_OPTS.
+    # If not specified, the default value will be picked from either YARN_HEAPMAX
+    # or JAVA_HEAP_MAX with YARN_HEAPMAX as the preferred option of the two.
+    #export YARN_NODEMANAGER_HEAPSIZE=1000
+    
+    # Specify the JVM options to be used when starting the NodeManager.
+    # These options will be appended to the options specified as YARN_OPTS
+    # and therefore may override any similar flags set in YARN_OPTS
+    #export YARN_NODEMANAGER_OPTS=
+    
+    # so that filenames w/ spaces are handled correctly in loops below
+    IFS=
+    
+    
+    # default log directory & file
+    if [ "$YARN_LOG_DIR" = "" ]; then
+      YARN_LOG_DIR="$HADOOP_YARN_HOME/logs"
+    fi
+    if [ "$YARN_LOGFILE" = "" ]; then
+      YARN_LOGFILE='yarn.log'
+    fi
+    
+    # default policy file for service-level authorization
+    if [ "$YARN_POLICYFILE" = "" ]; then
+      YARN_POLICYFILE="hadoop-policy.xml"
+    fi
+    
+    # restore ordinary behaviour
+    unset IFS
+    
+    
+    YARN_OPTS="$YARN_OPTS -Dhadoop.log.dir=$YARN_LOG_DIR"
+    YARN_OPTS="$YARN_OPTS -Dyarn.log.dir=$YARN_LOG_DIR"
+    YARN_OPTS="$YARN_OPTS -Dhadoop.log.file=$YARN_LOGFILE"
+    YARN_OPTS="$YARN_OPTS -Dyarn.log.file=$YARN_LOGFILE"
+    YARN_OPTS="$YARN_OPTS -Dyarn.home.dir=$YARN_COMMON_HOME"
+    YARN_OPTS="$YARN_OPTS -Dyarn.id.str=$YARN_IDENT_STRING"
+    YARN_OPTS="$YARN_OPTS -Dhadoop.root.logger=${YARN_ROOT_LOGGER:-INFO,console}"
+    YARN_OPTS="$YARN_OPTS -Dyarn.root.logger=${YARN_ROOT_LOGGER:-INFO,console}"
+    if [ "x$JAVA_LIBRARY_PATH" != "x" ]; then
+      YARN_OPTS="$YARN_OPTS -Djava.library.path=$JAVA_LIBRARY_PATH"
+    fi  
+    YARN_OPTS="$YARN_OPTS -Dyarn.policy.file=$YARN_POLICYFILE"
+
+    {{if .Values.metrics.jmx.enable}}
+    # 添加jmx监控开放
+    export YARN_NODEMANAGER_OPTS="$YARN_NODEMANAGER_OPTS -Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Dcom.sun.management.jmxremote.port=8001"
+    export YARN_RESOURCEMANAGER_OPTS="$YARN_RESOURCEMANAGER_OPTS -Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Dcom.sun.management.jmxremote.port=8002"
+    {{end}}
+    
+
+    
+
+  yarn-site.xml: |
+    <?xml version="1.0"?>
+    <?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
+
+    <configuration>
+        {{if .Values.haMode}}
+        <!--    HA相关开始-->
+        <property>
+            <name>yarn.resourcemanager.ha.enabled</name>
+            <value>true</value>
+        </property>
+        <property>
+            <name>yarn.resourcemanager.recovery.enabled</name>
+            <value>true</value>
+        </property>
+        <property>
+            <name>yarn.resourcemanager.store.class</name>
+            <value>org.apache.hadoop.yarn.server.resourcemanager.recovery.ZKRMStateStore</value>
+        </property>
+        <property>
+            <name>yarn.resourcemanager.zk-address</name>
+            <value>{{template  "yarn.zookeeper-quorum" .}}</value>
+        </property>
+        <property>
+            <name>yarn.resourcemanager.ha.automatic-failover.enabled</name>
+            <value>true</value>
+        </property>
+        <property>
+            <name>yarn.resourcemanager.ha.automatic-failover.embedded</name>
+            <value>true</value>
+        </property>
+        <property>
+            <name>yarn.resourcemanager.cluster-id</name>
+            <value>yarn1-cluster</value>
+        </property>
+        <property>
+            <name>yarn.resourcemanager.zk-state-store.parent-path</name>
+            <value>/yarn/rmstore-yarn1</value>
+        </property>
+        <property>
+            <name>yarn.resourcemanager.ha.automatic-failover.zk-base-path</name>
+            <value>/yarn/yarn-leader-election</value>
+        </property>
+        
+        <property>
+            <name>yarn.resourcemanager.address.rm0</name>
+            <value>{{ .Release.Name}}-hadoop-yarn-resourcemanager-0.{{ .Release.Name}}-hadoop-yarn-resourcemanager.{{.Release.Namespace}}.svc.cluster.local:8032</value>
+        </property>
+        <property>
+            <name>yarn.resourcemanager.resource-tracker.address.rm0</name>
+            <value>{{ .Release.Name}}-hadoop-yarn-resourcemanager-0.{{ .Release.Name}}-hadoop-yarn-resourcemanager.{{.Release.Namespace}}.svc.cluster.local:8031</value>
+        </property>
+        <property>
+            <name>yarn.resourcemanager.scheduler.address.rm0</name>
+            <value>{{ .Release.Name}}-hadoop-yarn-resourcemanager-0.{{ .Release.Name}}-hadoop-yarn-resourcemanager.{{.Release.Namespace}}.svc.cluster.local:8030</value>
+        </property>
+        <property>
+            <name>yarn.resourcemanager.admin.address.rm0</name>
+            <value>{{ .Release.Name}}-hadoop-yarn-resourcemanager-0.{{ .Release.Name}}-hadoop-yarn-resourcemanager.{{.Release.Namespace}}.svc.cluster.local:8033</value>
+        </property>
+        <property>
+            <name>yarn.resourcemanager.webapp.address.rm0</name>
+            <value>{{ .Release.Name}}-hadoop-yarn-resourcemanager-0.{{ .Release.Name}}-hadoop-yarn-resourcemanager.{{.Release.Namespace}}.svc.cluster.local:8088</value>
+        </property>
+        <property>
+            <name>yarn.resourcemanager.address.rm1</name>
+            <value>{{ .Release.Name}}-hadoop-yarn-resourcemanager-1.{{ .Release.Name}}-hadoop-yarn-resourcemanager.{{.Release.Namespace}}.svc.cluster.local:8032</value>
+        </property>
+        <property>
+            <name>yarn.resourcemanager.resource-tracker.address.rm1</name>
+            <value>{{ .Release.Name}}-hadoop-yarn-resourcemanager-1.{{ .Release.Name}}-hadoop-yarn-resourcemanager.{{.Release.Namespace}}.svc.cluster.local:8031</value>
+        </property>
+        <property>
+            <name>yarn.resourcemanager.scheduler.address.rm1</name>
+            <value>{{ .Release.Name}}-hadoop-yarn-resourcemanager-1.{{ .Release.Name}}-hadoop-yarn-resourcemanager.{{.Release.Namespace}}.svc.cluster.local:8030</value>
+        </property>
+        <property>
+            <name>yarn.resourcemanager.admin.address.rm1</name>
+            <value>{{ .Release.Name}}-hadoop-yarn-resourcemanager-1.{{ .Release.Name}}-hadoop-yarn-resourcemanager.{{.Release.Namespace}}.svc.cluster.local:8033</value>
+        </property>
+        <property>
+            <name>yarn.resourcemanager.webapp.address.rm1</name>
+            <value>{{ .Release.Name}}-hadoop-yarn-resourcemanager-1.{{ .Release.Name}}-hadoop-yarn-resourcemanager.{{.Release.Namespace}}.svc.cluster.local:8088</value>
+        </property>
+       
+        <property>
+            <name>yarn.resourcemanager.ha.rm-ids</name>
+            <value>rm0,rm1</value>
+        </property>
+        <!--    HA相关结束-->
+        {{else}}
+            <!--    不开启ha模式，默认为rm0-->
+        <property>
+            <name>yarn.resourcemanager.hostname</name>
+            <value>{{ .Release.Name}}-hadoop-yarn-resourcemanager-0.{{ .Release.Name}}-hadoop-yarn-resourcemanager.{{.Release.Namespace}}.svc.cluster.local</value>
+        </property>
+
+
+        {{end}}
+
+        <!-- Bind to all interfaces -->
+        <property>
+            <name>yarn.resourcemanager.bind-host</name>
+            <value>0.0.0.0</value>
+        </property>
+        <property>
+            <name>yarn.nodemanager.bind-host</name>
+            <value>0.0.0.0</value>
+        </property>
+        <property>
+            <name>yarn.timeline-service.bind-host</name>
+            <value>0.0.0.0</value>
+        </property>
+        <!-- /Bind to all interfaces -->
+
+        <!-- NM可用内存 -->
+        <property>
+            <name>yarn.nodemanager.resource.memory-mb</name>
+            <value>10240</value>
+        </property>
+
+        <!-- NM可用虚拟核 -->
+        <property>
+            <name>yarn.nodemanager.resource.cpu-vcores</name>
+            <value>8</value>
+        </property>
+
+      <property>
+        <name>yarn.nodemanager.vmem-check-enabled</name>
+        <value>false</value>
+      </property>
+        <property>
+            <name>yarn.nodemanager.pmem-check-enabled</name>
+            <value>false</value>
+        </property>
+
+      <property>
+        <name>yarn.nodemanager.aux-services</name>
+        <value>mapreduce_shuffle,spark_shuffle</value>
+      </property>
+
+        <!-- spark 外部shuffle服务开始 -->
+      <property>
+      <name>yarn.nodemanager.aux-services.spark_shuffle.class</name>
+      <value>org.apache.spark.network.yarn.YarnShuffleService</value>
+      </property>
+
+        <property>
+        <name>spark.shuffle.service.port</name>
+        <value>7337</value>
+      </property>
+
+        <property>
+        <name>yarn.nodemanager.aux-services.spark_shuffle.classpath</name>
+        <value>/opt/spark_yarn/spark-3.2.1-yarn-shuffle.jar</value>
+        </property>
+        <!-- spark 外部shuffle服务结束 -->
+
+        <property>
+            <name>yarn.webapp.ui2.enable</name>
+            <value>true</value>
+        </property>
+
+      <property>
+        <name>yarn.nodemanager.aux-services.mapreduce_shuffle.class</name>
+        <value>org.apache.hadoop.mapred.ShuffleHandler</value>
+      </property>
+
+      <property>
+        <description>List of directories to store localized files in.</description>
+        <name>yarn.nodemanager.local-dirs</name>
+        <value>/var/lib/hadoop-yarn/cache/${user.name}/nm-local-dir</value>
+      </property>
+
+      <property>
+        <description>Where to store container logs.</description>
+        <name>yarn.nodemanager.log-dirs</name>
+        <value>/var/log/hadoop-yarn/containers</value>
+      </property>
+       
+        <property> 
+        <name> yarn.log-aggregation-enable</name>
+        <value>true</value>
+        </property>
+      <property>
+        <description>Where to aggregate logs to.远程存储</description>
+        <name>yarn.nodemanager.remote-app-log-dir</name>
+        <value>/hadoop-yarn-logs/apps</value>
+      </property>
+        
+        <!--指定yarn.log.server.url所在节点，不开启的话，已完成的任务无法正常查看日志-->
+        <property>
+        <name>yarn.log.server.url</name>
+        <value>http://{{ .Release.Name}}-hadoop-mr-jobhistory-0.{{ .Release.Name}}-hadoop-mr-jobhistory.{{.Release.Namespace}}.svc.cluster.local:19888/jobhistory/logs</value>
+        </property>
+
+      <property>
+        <name>yarn.application.classpath</name>
+        <value>
+          /usr/local/hadoop/etc/hadoop,
+          /usr/local/hadoop/share/hadoop/common/*,
+          /usr/local/hadoop/share/hadoop/common/lib/*,
+          /usr/local/hadoop/share/hadoop/hdfs/*,
+          /usr/local/hadoop/share/hadoop/hdfs/lib/*,
+          /usr/local/hadoop/share/hadoop/mapreduce/*,
+          /usr/local/hadoop/share/hadoop/mapreduce/lib/*,
+          /usr/local/hadoop/share/hadoop/yarn/*,
+          /usr/local/hadoop/share/hadoop/yarn/lib/*
+        </value>
+      </property>
+            
+          <property>
+          <name>yarn.resourcemanager.scheduler.class</name>
+          <value>org.apache.hadoop.yarn.server.resourcemanager.scheduler.capacity.CapacityScheduler</value>
+          </property>
+          <property>
+          <name>yarn.scheduler.maximum-allocation-mb</name>
+          <value>98304</value>
+          </property>
+          <property>
+              <name>yarn.scheduler.maximum-allocation-vcores</name>
+              <value>96</value>
+          </property>  
+          <property>
+          <name>yarn.nodemanager.delete.debug-delay-sec</name>
+          <value>86400</value>
+          </property>
+    </configuration>
+      
+      
+  capacity-scheduler.xml: |
+    <?xml version="1.0" encoding="UTF-8" standalone="no"?>
+    <configuration>
+        <property>
+            <name>yarn.scheduler.capacity.root.acl_submit_applications</name>
+            <value>*</value>
+        </property>
+        <property>
+            <name>yarn.scheduler.capacity.root.maximum-applications</name>
+            <value>10000</value>
+        </property>
+        <property>
+            <name>yarn.scheduler.capacity.maximum-am-resource-percent</name>
+            <value>0.1</value>
+        </property>
+        <property>
+            <name>yarn.scheduler.capacity.root.acl_administer_queue</name>
+            <value>*</value>
+        </property>
+        <property>
+            <name>yarn.scheduler.capacity.root.default.capacity</name>
+            <value>90</value>
+        </property>
+        <property>
+            <name>yarn.scheduler.capacity.root.test.capacity</name>
+            <value>10</value>
+        </property>
+        <property>
+            <name>yarn.scheduler.capacity.root.test.maximum-capacity</name>
+            <value>30</value>
+        </property>
+        <property>
+            <name>yarn.scheduler.capacity.resource-calculator</name>
+            <value>org.apache.hadoop.yarn.util.resource.DominantResourceCalculator</value>
+        </property>
+        <property>
+            <name>yarn.scheduler.capacity.root.maximum-capacity</name>
+            <value>100</value>
+        </property>
+        <property>
+            <name>yarn.scheduler.capacity.root.default.user-limit-factor</name>
+            <value>1</value>
+        </property>
+        <property>
+            <name>yarn.scheduler.capacity.root.queues</name>
+            <value>default,test</value>
+        </property>
+        <property>
+            <name>yarn.scheduler.capacity.root.default.acl_submit_applications</name>
+            <value>*</value>
+        </property>
+        <property>
+            <name>yarn.scheduler.capacity.root.capacity</name>
+            <value>100</value>
+        </property>
+      <property>
+            <name>yarn.scheduler.capacity.root.default.capacity</name>
+            <value>90</value>
+        </property>
+        <property>
+            <name>yarn.scheduler.capacity.root.default.maximum-capacity</name>
+            <value>100</value>
+        </property>
+        <property>
+            <name>yarn.scheduler.capacity.root.maximum-am-resource-percent</name>
+            <value>0.1</value>
+        </property>
+        <property>
+            <name>yarn.scheduler.capacity.root.default.acl_administer_queue</name>
+            <value>*</value>
+        </property>
+        <property>
+            <name>yarn.scheduler.capacity.node-locality-delay</name>
+            <value>-1</value>
+        </property>
+        <property>
+            <name>yarn.scheduler.capacity.root.state</name>
+            <value>RUNNING</value>
+        </property>
+        <property>
+            <name>yarn.scheduler.capacity.maximum-applications</name>
+            <value>10000</value>
+        </property>
+        <property>
+            <name>yarn.scheduler.capacity.root.user-limit-factor</name>
+            <value>1</value>
+        </property>
+        <property>
+            <name>yarn.scheduler.capacity.root.default.state</name>
+            <value>RUNNING</value>
+        </property>
+    </configuration>

@@ -1,0 +1,119 @@
+{{if .Values.history.enable}}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{.Release.Name}}-spark-history
+  labels:
+    app:  {{.Release.Name}}-spark-history
+spec:
+  replicas: 1
+  serviceName: {{.Release.Name}}-spark-history-headless
+  selector:
+    matchLabels:
+      app:  {{.Release.Name}}-spark-history
+  template:
+    metadata:
+      labels:
+        app:  {{.Release.Name}}-spark-history
+    spec:
+      nodeSelector:
+      {{ toYaml .Values.history.nodeSelector | indent 8 }}
+      containers:
+        - name: spark-history
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 18080
+            initialDelaySeconds: 10
+            timeoutSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 18080
+            initialDelaySeconds: 30
+            timeoutSeconds: 5
+          image: {{.Values.image}}
+          imagePullPolicy: Always
+          # todo 增加Fair调度和executor num，服务监控检查
+          command: [ "/bin/sh","-c","hadoop fs -mkdir -p /spark3/history ; /opt/spark/sbin/start-history-server.sh  ;  tail -f /opt/spark/logs/spark--org.apache.spark.deploy.history.HistoryServer-1-$MY_POD_NAME.out; " ]
+          env:
+            - name: TZ
+              value: "Asia/Shanghai"
+            - name: MY_POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: MY_POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: MY_POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+            - name: HADOOP_CONF_DIR
+              value: /opt/spark/conf
+          volumeMounts:
+            - name: spark-conf
+              mountPath: /opt/spark/conf/spark-defaults.conf
+              subPath: spark-defaults.conf
+            - name: spark-conf
+              mountPath: /opt/spark/conf/spark-env.sh
+              subPath: spark-env.sh
+            - name: hadoop-fs-conf
+              mountPath: /opt/spark/conf/core-site.xml
+              subPath: core-site.xml
+            - name: hadoop-fs-conf
+              mountPath: /opt/spark/conf/hdfs-site.xml
+              subPath: hdfs-site.xml
+            - name: hadoop-yarn-conf
+              mountPath: /opt/spark/conf/yarn-site.xml
+              subPath: yarn-site.xml
+            - name: hadoop-hive-conf
+              mountPath: /opt/spark/conf/hive-site.xml
+              subPath: hive-site.xml
+            - name: hadoop-yarn-conf
+              mountPath: /opt/spark/conf/mapred-site.xml
+              subPath: mapred-site.xml
+      volumes:
+        - name: spark-conf
+          configMap:
+              name: {{.Release.Name}}-spark-conf-map
+        - name: hadoop-fs-conf
+          configMap:
+            name: {{template "spark.hadoop-fs-conf" .}}
+        - name: hadoop-yarn-conf
+          configMap:
+            name: {{template "spark.hadoop-yarn-conf" .}}
+        - name: hadoop-hive-conf
+          configMap:
+            name: {{template "spark.hadoop-hive-conf" .}}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{.Release.Name}}-spark-history-ui
+spec:
+  ports:
+    - port: 18080
+      protocol: TCP
+      name: spark-history-web
+  selector:
+    # same of pod label
+    app: {{.Release.Name}}-spark-history
+---
+kind: Service
+apiVersion: v1
+
+metadata:
+  name: {{.Release.Name}}-spark-history-headless
+  labels:
+    app: {{.Release.Name}}-spark-history
+spec:
+  selector:
+    app: {{.Release.Name}}-spark-history
+  clusterIP: None
+  type: ClusterIP
+
+{{end}}

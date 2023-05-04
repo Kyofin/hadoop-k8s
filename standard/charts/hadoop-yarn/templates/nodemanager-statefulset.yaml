@@ -1,0 +1,168 @@
+{{- $hostNetwork := .Values.hostNetwork }}
+kind: StatefulSet
+apiVersion: apps/v1
+metadata:
+  name: {{ .Release.Name}}-hadoop-yarn-nodemanager
+  labels:
+    app: hadoop
+    component: yarn-nm
+    release: {{ .Release.Name}}
+
+spec:
+  replicas: {{ .Values.nodeManager.replicas }}
+  volumeClaimTemplates:
+    - metadata:
+        name: nn-local-dir
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 300Gi
+  selector:
+    matchLabels:
+      app: hadoop
+      component: yarn-nm
+      release: {{ .Release.Name}}
+  template:
+    metadata:
+      labels:
+        app: hadoop
+        component: yarn-nm
+        release: {{ .Release.Name}}
+    spec:
+      hostNetwork: {{ $hostNetwork }}
+      dnsPolicy: {{ .Values.dnsPolicy | default ($hostNetwork | ternary "ClusterFirstWithHostNet" "ClusterFirst") }}
+      nodeSelector:
+      {{ toYaml .Values.nodeManager.nodeSelector | indent 8 }}
+
+      volumes:
+        {{ if .Values.metrics.jmx.enable}}
+        - name: jmx-config
+          configMap:
+              name: {{ .Release.Name}}-hadoop-yarn-jmx-configmap
+        {{end}}
+        - name: hadoop-fs-config
+          configMap:
+            name: {{  template "hadoop-fs-conf" .}}
+            defaultMode: 420
+        - name: hadoop-yarn-config
+          configMap:
+            name: {{ .Release.Name}}-hadoop-yarn-conf
+        - name: hadoop-script
+          configMap:
+            name: {{ .Release.Name}}-hadoop-yarn-script
+      containers:
+        {{if .Values.metrics.jmx.enable}}
+        - name: jmx-exporter
+          env:
+            - name: SERVICE_PORT
+              value: "28007"
+            - name: JVM_OPTS
+              value: " "
+          image: {{ .Values.metrics.jmx.image }}
+          imagePullPolicy: Always
+          ports:
+            - name: metrics
+              containerPort: 28007
+          resources:
+            limits:
+              cpu: '100m'
+              memory: 300Mi
+            requests:
+              cpu: '100m'
+              memory: 300Mi
+          volumeMounts:
+            - name: jmx-config
+              mountPath: /opt/jmx_exporter/config.yml
+              subPath: yarn-nodemanager-config.yml
+          livenessProbe:
+            failureThreshold: 8
+            httpGet:
+              path: /metrics
+              port: 28007
+            initialDelaySeconds: 30
+            periodSeconds: 15
+            successThreshold: 1
+            timeoutSeconds: 60
+          readinessProbe:
+            failureThreshold: 8
+            httpGet:
+              path: /metrics
+              port: 28007
+            initialDelaySeconds: 30
+            periodSeconds: 15
+            successThreshold: 1
+            timeoutSeconds: 60
+        {{end}}
+        - name: yarn-nm
+          image: {{ .Values.image }}
+          command:
+            - /bin/bash
+            - /tmp/hadoop-script/bootstrap.sh
+            - '-d'
+
+          env:
+            - name: MY_CPU_LIMIT
+              valueFrom:
+                resourceFieldRef:
+                  containerName: yarn-nm
+                  resource: limits.cpu
+                  divisor: '1'
+            - name: MY_MEM_LIMIT
+              valueFrom:
+                resourceFieldRef:
+                  containerName: yarn-nm
+                  resource: limits.memory
+                  divisor: 1M
+            - name: TZ
+              value: "Asia/Shanghai"
+            - name: YARN_ROLE
+              value: yarn-nm
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+          resources:
+            limits:
+              cpu: {{ .Values.nodeManager.cpu}}
+              memory: {{ .Values.nodeManager.memory}}
+            requests:
+              cpu: {{ .Values.nodeManager.cpu}}
+              memory: {{ .Values.nodeManager.memory}}
+          volumeMounts:
+            - name: hadoop-fs-config
+              mountPath: /tmp/hadoop-fs-config
+            - name: hadoop-yarn-config
+              mountPath: /tmp/hadoop-yarn-config
+            - name: hadoop-script
+              mountPath: /tmp/hadoop-script
+            - name: nn-local-dir
+              mountPath: /var/lib/hadoop-yarn/cache/root/nm-local-dir
+          livenessProbe:
+            httpGet:
+              path: /node
+              port: 8042
+              scheme: HTTP
+            initialDelaySeconds: 10
+            timeoutSeconds: 2
+          readinessProbe:
+            httpGet:
+              path: /node
+              port: 8042
+              scheme: HTTP
+            initialDelaySeconds: 10
+            timeoutSeconds: 2
+          imagePullPolicy: Always
+      terminationGracePeriodSeconds: 0
+      securityContext: {}
+#      affinity:
+#        nodeAffinity:
+#          requiredDuringSchedulingIgnoredDuringExecution:
+#            nodeSelectorTerms:
+#              - matchExpressions:
+#                  - key: small_storage
+#                    operator: DoesNotExist
+
+  serviceName: {{ .Release.Name}}-hadoop-yarn-nodemanager
+

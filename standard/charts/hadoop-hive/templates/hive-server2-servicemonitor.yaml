@@ -1,0 +1,15 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{.Release.Name}}-hive-server2
+  labels:
+    app: hive-server2
+spec:
+  endpoints:
+  - port: metrics
+  selector:
+    matchLabels:
+      app: hive-server2
+  namespaceSelector:
+    matchNames:
+      - {{ .Release.Namespace }}

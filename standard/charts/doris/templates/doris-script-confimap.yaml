@@ -1,0 +1,43 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{.Release.Name}}-doris-script-configmap
+  labels:
+    app: doris
+data:
+  fe_bootstrap.sh: |
+    #!/usr/bin/env bash
+    set -ex
+    set -o pipefail
+
+    echo "开始启动fe....."
+    /opt/doris/fe/bin/start_fe.sh --daemon
+
+    sleep 5
+    tail -F /opt/doris/fe/log/*.log
+
+
+  be_bootstrap.sh: |
+    #!/usr/bin/env bash
+    set -ex
+    set -o pipefail
+
+    echo "开始启动be....."
+    /opt/doris/be/bin/start_be.sh --daemon
+
+    echo "开始检测/opt/doris/be/storage/.be_registered文件....."
+    _BE_REGISTER=/opt/doris/be/storage/.be_registered
+    if [[ ! -f $_BE_REGISTER ]]; then
+      echo "无法检测到/opt/doris/be/storage/.be_registered文件，开始通过mysql客户端连接fe进行当前be节点的注册......."
+      export SQL="ALTER SYSTEM ADD BACKEND '"$BE_IPADDRESS":{{.Values.be.heartbeat_service_port}}'"
+      echo $SQL > tmp.sql
+
+      mysql -h {{.Release.Name}}-doris-fe-svc -P {{.Values.fe.query_port}} -u root < tmp.sql
+
+      echo "doris be节点注册成功......."
+      touch $_BE_REGISTER
+    fi
+
+    sleep 5
+    tail -F /opt/doris/be/log/*.INFO
+

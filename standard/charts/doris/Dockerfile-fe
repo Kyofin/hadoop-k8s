@@ -1,0 +1,39 @@
+FROM ubuntu:trusty AS build
+
+RUN apt install -y wget
+
+# setup jdk
+ARG JAVA_VERSION=jdk1.8.0_141
+ENV JAVA_HOME /opt/${JAVA_VERSION}
+RUN wget --no-cookies --no-check-certificate --header "Cookie: gpw_e24=http%3A%2F%2Fwww.oracle.com%2F; oraclelicense=accept-securebackup-cookie" "http://download.oracle.com/otn-pub/java/jdk/8u141-b15/336fa29ff2bb4ef291e347e091f7f4a7/jdk-8u141-linux-x64.tar.gz" -P /opt \
+    && tar -zxvf /opt/jdk-8u141-linux-x64.tar.gz -C /opt/ \
+    && rm -f /opt/jdk-8u141-linux-x64.tar.gz && ln -s /opt/${JAVA_VERSION} /opt/jdk
+
+ENV DORIS_URL="https://uni-1253355096.cos.ap-guangzhou.myqcloud.com/apache-doris-1.1.0-bin-x86-jdk8.tar.gz"
+
+RUN  wget -O /opt/apache-doris-1.1.0-bin-x86-jdk8.tar.gz  --no-check-certificate "$DORIS_URL" \
+&& tar zxvf /opt/apache-doris-1.1.0-bin-x86-jdk8.tar.gz -C /opt \
+&& rm -rf  /opt/apache-doris-1.1.0-bin-x86-jdk8.tar.gz  \
+&& mkdir -p /opt/doris  \
+&&  mv /opt/apache-doris-1.1.0-bin-x86-jdk8/fe   /opt/doris/fe
+
+
+FROM ubuntu:trusty
+
+COPY --from=build /opt/doris /opt/doris
+COPY --from=build /opt/jdk /opt/jdk
+
+RUN apt install -y  mysql-client
+
+
+ENV JAVA_HOME /opt/jdk/
+ENV CLASSPATH $JAVA_HOME/lib/dt.jar:$JAVA_HOME/lib/tools.jar
+ENV PATH $PATH:$JAVA_HOME/bin
+
+
+EXPOSE 8030
+EXPOSE 9020
+EXPOSE 9030
+EXPOSE 9010
+
+CMD /opt/doris/fe/bin/start_fe.sh
